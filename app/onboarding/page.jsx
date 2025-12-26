@@ -310,7 +310,6 @@ export default function OnboardingPage() {
             {/* Step 1: Personal Information */}
             {step === 1 && (
               <div className="space-y-6">
-              <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Name *
