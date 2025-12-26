@@ -1,0 +1,266 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { useDoctorStore } from '@/store/useDoctorStore'
+import { fetchDoctorProfile } from '@/lib/doctorApi'
+import { transformApiProfileToUI } from '@/lib/dataTransformers'
+// import { fetchLeadEvents } from '@/lib/doctorApi' // TODO: Uncomment when API endpoint is available
+import DashboardSidebar from '@/components/doctor/DashboardSidebar'
+import { Eye, Heart, MessageCircle, Phone, TrendingUp } from 'lucide-react'
+
+export default function DashboardOverview() {
+  const router = useRouter()
+  const doctorAuth = useDoctorStore((state) => state.doctorAuth)
+  const doctorProfile = useDoctorStore((state) => state.doctorProfile)
+  const setOnboarded = useDoctorStore((state) => state.setOnboarded)
+
+  // Fetch doctor profile from API
+  const { data: apiProfile, isLoading: profileLoading } = useQuery({
+    queryKey: ['doctorProfile', doctorAuth.doctorId],
+    queryFn: () => fetchDoctorProfile(doctorAuth.doctorId),
+    enabled: !!doctorAuth.doctorId && doctorAuth.isAuthed,
+  })
+
+  // Update store when API profile is fetched
+  useEffect(() => {
+    if (apiProfile?.success && apiProfile?.data) {
+      const uiProfile = transformApiProfileToUI(apiProfile.data)
+      if (uiProfile) {
+        setOnboarded(uiProfile)
+      }
+    }
+  }, [apiProfile, setOnboarded])
+
+  useEffect(() => {
+    if (!doctorAuth.isAuthed) {
+      router.push('/auth')
+    } else if (doctorAuth.onboardingStep !== 'COMPLETE') {
+      router.push('/onboarding')
+    }
+  }, [doctorAuth, router])
+
+  // TODO: Fetch lead events from API when endpoint is available
+  // const { data: leadEvents = [] } = useQuery({
+  //   queryKey: ['leadEvents', doctorAuth.doctorId],
+  //   queryFn: () => fetchLeadEvents(doctorAuth.doctorId),
+  //   enabled: !!doctorAuth.doctorId,
+  // })
+  const leadEvents = [] // Placeholder until API is available
+
+  const recentEvents = leadEvents.slice(0, 5)
+
+  const getEventIcon = (type) => {
+    switch (type) {
+      case 'Profile View':
+        return Eye
+      case 'Saved':
+        return Heart
+      case 'Clicked WhatsApp':
+        return MessageCircle
+      case 'Clicked Call':
+        return Phone
+      default:
+        return Eye
+    }
+  }
+
+  const getEventColor = (type) => {
+    switch (type) {
+      case 'Saved':
+        return 'text-accent-red'
+      default:
+        return 'text-primary-blue'
+    }
+  }
+
+  const calculateProfileCompleteness = () => {
+    const fields = [
+      doctorProfile.basic?.name,
+      doctorProfile.basic?.age,
+      doctorProfile.basic?.gender,
+      doctorProfile.basic?.languages?.length > 0,
+      doctorProfile.basic?.phone,
+      doctorProfile.professional?.specialty,
+      doctorProfile.professional?.yearsOfExperience,
+      doctorProfile.professional?.recentGraduation,
+      doctorProfile.practice?.address,
+      doctorProfile.practice?.city,
+      doctorProfile.practice?.availableDays?.length > 0,
+      doctorProfile.practice?.timings?.from,
+      doctorProfile.practice?.timings?.to,
+    ]
+    const filled = fields.filter(Boolean).length
+    return Math.round((filled / fields.length) * 100)
+  }
+
+  const completeness = calculateProfileCompleteness()
+
+  if (!doctorAuth.isAuthed || doctorAuth.onboardingStep !== 'COMPLETE') {
+    return null
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen bg-paper">
+        <DashboardSidebar />
+        <div className="ml-64 pt-16">
+          <div className="p-8">
+            <div className="text-center py-12">
+              <p className="text-gray-600">Loading dashboard...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-paper">
+      <DashboardSidebar />
+      <div className="ml-64 pt-16">
+        <div className="p-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Overview</h1>
+            <p className="text-gray-600">Welcome back, {doctorProfile.basic?.name || 'Doctor'}</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Profile Completeness Card */}
+            <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Profile Completeness</h2>
+                <span className="text-2xl font-bold text-primary-blue">{completeness}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                <div
+                  className="bg-primary-blue h-3 rounded-full transition-all duration-500"
+                  style={{ width: `${completeness}%` }}
+                />
+              </div>
+              <p className="text-sm text-gray-600">
+                {completeness < 100
+                  ? 'Complete your profile to get more visibility and leads.'
+                  : 'Your profile is complete! Keep it updated to maintain visibility.'}
+              </p>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Stats</h2>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">Total Views</span>
+                    <span className="text-lg font-bold text-gray-900">
+                      {leadEvents.filter((e) => e.type === 'Profile View').length}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">Saved</span>
+                    <span className="text-lg font-bold text-gray-900">
+                      {leadEvents.filter((e) => e.type === 'Saved').length}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">Contact Clicks</span>
+                    <span className="text-lg font-bold text-gray-900">
+                      {leadEvents.filter((e) => e.type.includes('Clicked')).length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Interest */}
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Recent Interest</h2>
+              <a
+                href="/dashboard/leads"
+                className="text-primary-blue hover:underline text-sm font-medium"
+              >
+                View all
+              </a>
+            </div>
+            {recentEvents.length > 0 ? (
+              <div className="space-y-4">
+                {recentEvents.map((event) => {
+                  const Icon = getEventIcon(event.type)
+                  const colorClass = getEventColor(event.type)
+                  const timeAgo = getTimeAgo(event.createdAt)
+
+                  return (
+                    <div
+                      key={event.eventId}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 ${colorClass} bg-white rounded-lg flex items-center justify-center`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-gray-900">{event.type}</div>
+                          <div className="text-sm text-gray-600">
+                            {event.patientName ? (
+                              <>
+                                {event.patientName}
+                                {event.patientCity && ` • ${event.patientCity}`}
+                              </>
+                            ) : (
+                              'Anonymous visitor'
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-500">{timeAgo}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p>No activity yet. Your leads will appear here.</p>
+              </div>
+            )}
+          </div>
+
+          {/* More Features Coming Soon */}
+          <div className="bg-gradient-to-r from-primary-blue/10 to-accent-red/10 rounded-xl p-6 border border-primary-blue/20">
+            <div className="flex items-start space-x-4">
+              <div className="w-12 h-12 bg-primary-blue rounded-lg flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">More features coming soon</h3>
+                <p className="text-gray-600">
+                  We're working on adding appointment scheduling, patient messaging, analytics dashboard, and more. Stay tuned for updates!
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function getTimeAgo(date) {
+  const now = new Date()
+  const diff = now - date
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+
+  if (minutes < 60) return `${minutes}m ago`
+  if (hours < 24) return `${hours}h ago`
+  return `${days}d ago`
+}
+
