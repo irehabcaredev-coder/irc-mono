@@ -8,6 +8,8 @@ import AuthModal from '@/components/patients/AuthModal'
 import DoctorProfile from '@/components/patients/DoctorProfile'
 import { usePatientStore } from '@/store/usePatientStore'
 import { filterDoctors } from '@/lib/filterDoctors'
+import { fetchAllDoctors } from '@/lib/doctorApi'
+import { transformApiDoctorToCard } from '@/lib/dataTransformers'
 
 const languages = ['English', 'Hindi', 'Assamese', 'Bengali', 'Kannada', 'Marathi', 'Tamil', 'Telugu', 'Gujarati']
 
@@ -21,18 +23,33 @@ export default function PatientsPage() {
   const toggleConsultMode = usePatientStore((state) => state.toggleConsultMode)
   const setSelectedLanguage = usePatientStore((state) => state.setSelectedLanguage)
 
-  // Use React Query for data fetching (mock for now)
-  const { data: doctors = [], isLoading } = useQuery({
-    queryKey: ['doctors', activeTab, searchQuery, selectedConsultModes, selectedLanguage, savedDoctorIds],
+  // Fetch all doctors from API
+  const { data: apiDoctorsResponse, isLoading: isLoadingDoctors } = useQuery({
+    queryKey: ['allDoctors'],
+    queryFn: async () => {
+      const response = await fetchAllDoctors()
+      return response.data || []
+    },
+  })
+
+  // Transform API doctors to card format
+  const allDoctors = (apiDoctorsResponse || []).map(transformApiDoctorToCard).filter(Boolean)
+
+  // Filter doctors based on user selections
+  const { data: doctors = [], isLoading: isLoadingFiltered } = useQuery({
+    queryKey: ['filteredDoctors', allDoctors, activeTab, searchQuery, selectedConsultModes, selectedLanguage, savedDoctorIds],
     queryFn: () =>
-      filterDoctors({
+      filterDoctors(allDoctors, {
         activeTab,
         searchQuery,
         selectedConsultModes,
         selectedLanguage,
         savedDoctorIds,
       }),
+    enabled: allDoctors.length > 0 || isLoadingDoctors,
   })
+
+  const isLoading = isLoadingDoctors || isLoadingFiltered
 
   return (
     <div className="min-h-screen bg-paper">

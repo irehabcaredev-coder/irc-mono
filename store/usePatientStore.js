@@ -52,15 +52,38 @@ export const usePatientStore = create(
       
       setSelectedLanguage: (language) => set({ selectedLanguage: language }),
       
-      toggleSavedDoctor: (doctorId) =>
-        set((state) => {
-          const isSaved = state.savedDoctorIds.includes(doctorId)
-          return {
-            savedDoctorIds: isSaved
-              ? state.savedDoctorIds.filter((id) => id !== doctorId)
-              : [...state.savedDoctorIds, doctorId],
+      toggleSavedDoctor: async (doctorId) => {
+        const state = get()
+        const isSaved = state.savedDoctorIds.includes(doctorId)
+        const patientId = state.patientProfile?.patientId
+
+        // Optimistic update
+        set({
+          savedDoctorIds: isSaved
+            ? state.savedDoctorIds.filter((id) => id !== doctorId)
+            : [...state.savedDoctorIds, doctorId],
+        })
+
+        // Call API if patient is authenticated
+        if (patientId) {
+          try {
+            const { saveDoctor, unsaveDoctor } = await import('@/lib/patientApi')
+            if (isSaved) {
+              await unsaveDoctor(patientId, doctorId)
+            } else {
+              await saveDoctor(patientId, doctorId)
+            }
+            // API call successful, state already updated optimistically
+          } catch (error) {
+            // Revert optimistic update on error
+            set({
+              savedDoctorIds: state.savedDoctorIds, // Revert to original state
+            })
+            console.error('Failed to update saved doctors:', error)
+            // Could show a toast/notification here
           }
-        }),
+        }
+      },
       
       addIntentEvent: (event) =>
         set((state) => ({
@@ -98,6 +121,7 @@ export const usePatientStore = create(
       
       logout: () => {
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('patient_token')
           window.location.href = '/patients'
         }
         set({

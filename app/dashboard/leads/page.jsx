@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useDoctorStore } from '@/store/useDoctorStore'
-import { fetchLeadEvents } from '@/lib/mockDoctorData'
+import { fetchLeadEvents } from '@/lib/doctorApi'
 import DashboardSidebar from '@/components/doctor/DashboardSidebar'
 import { Eye, Heart, MessageCircle, Phone } from 'lucide-react'
 

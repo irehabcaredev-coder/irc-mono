@@ -1,19 +1,49 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
 import Header from '@/components/patients/Header'
 import Sidebar from '@/components/patients/Sidebar'
 import DoctorCard from '@/components/patients/DoctorCard'
 import AuthModal from '@/components/patients/AuthModal'
 import DoctorProfile from '@/components/patients/DoctorProfile'
 import { usePatientStore } from '@/store/usePatientStore'
-import { mockDoctors } from '@/lib/mockData'
+import { fetchSavedDoctors } from '@/lib/patientApi'
+import { fetchAllDoctors } from '@/lib/doctorApi'
+import { transformApiDoctorToCard } from '@/lib/dataTransformers'
 
 export default function SavedDoctorsPage() {
-  const savedDoctorIds = usePatientStore((state) => state.savedDoctorIds)
+  const { isAuthed, patientProfile } = usePatientStore()
   const viewedDoctors = usePatientStore((state) => state.viewedDoctors)
+  const patientId = patientProfile?.patientId
 
-  const savedDoctors = mockDoctors.filter((doctor) => savedDoctorIds.includes(doctor.id))
-  const viewedDoctorsList = mockDoctors.filter((doctor) => viewedDoctors.includes(doctor.id))
+  // Fetch saved doctors from API (only if patient is authenticated)
+  const { data: savedDoctorsResponse, isLoading: isLoadingSaved } = useQuery({
+    queryKey: ['savedDoctors', patientId],
+    queryFn: async () => {
+      if (!patientId) return { data: [], count: 0 }
+      const response = await fetchSavedDoctors(patientId)
+      return response
+    },
+    enabled: !!patientId && isAuthed,
+  })
+
+  // Fetch all doctors for recently viewed section
+  const { data: apiDoctorsResponse, isLoading: isLoadingAll } = useQuery({
+    queryKey: ['allDoctors'],
+    queryFn: async () => {
+      const response = await fetchAllDoctors()
+      return response.data || []
+    },
+  })
+
+  // Transform saved doctors from API to card format
+  const savedDoctors = (savedDoctorsResponse?.data || []).map(transformApiDoctorToCard).filter(Boolean)
+
+  // Transform all doctors for recently viewed
+  const allDoctors = (apiDoctorsResponse || []).map(transformApiDoctorToCard).filter(Boolean)
+  const viewedDoctorsList = allDoctors.filter((doctor) => viewedDoctors.includes(doctor.id))
+
+  const isLoading = isLoadingSaved || isLoadingAll
 
   return (
     <div className="min-h-screen bg-paper">
@@ -29,7 +59,20 @@ export default function SavedDoctorsPage() {
             {/* Saved Doctors Section */}
             <div className="mb-8">
               <h1 className="text-2xl font-semibold text-gray-900 mb-6">Saved Doctors</h1>
-              {savedDoctors.length > 0 ? (
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="bg-gray-100 border border-gray-200 rounded-md p-5 animate-pulse"
+                    >
+                      <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                      <div className="h-10 bg-gray-200 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : savedDoctors.length > 0 ? (
                 <div className="space-y-4">
                   {savedDoctors.map((doctor) => (
                     <DoctorCard key={doctor.id} doctor={doctor} />
@@ -48,7 +91,20 @@ export default function SavedDoctorsPage() {
             {/* Recently Viewed Section */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Recently Viewed</h2>
-              {viewedDoctorsList.length > 0 ? (
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="bg-gray-100 border border-gray-200 rounded-md p-5 animate-pulse"
+                    >
+                      <div className="h-6 bg-gray-200 rounded w-1/3 mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                      <div className="h-10 bg-gray-200 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : viewedDoctorsList.length > 0 ? (
                 <div className="space-y-4">
                   {viewedDoctorsList.map((doctor) => (
                     <DoctorCard key={doctor.id} doctor={doctor} />

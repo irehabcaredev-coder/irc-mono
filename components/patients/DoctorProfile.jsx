@@ -1,13 +1,21 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { X, Phone, MessageCircle } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
-import { mockDoctors } from '@/lib/mockData'
+import { fetchDoctorProfile } from '@/lib/doctorApi'
+import { transformApiDoctorToCard } from '@/lib/dataTransformers'
 
 export default function DoctorProfile() {
   const { profileDrawerOpen, selectedDoctorId, closeProfileDrawer, isAuthed, openAuthModal, addViewedDoctor } =
     usePatientStore()
+
+  const { data: apiDoctor, isLoading } = useQuery({
+    queryKey: ['doctor', selectedDoctorId],
+    queryFn: () => fetchDoctorProfile(selectedDoctorId),
+    enabled: !!selectedDoctorId && profileDrawerOpen,
+  })
 
   useEffect(() => {
     if (profileDrawerOpen && selectedDoctorId && isAuthed) {
@@ -17,7 +25,23 @@ export default function DoctorProfile() {
 
   if (!profileDrawerOpen || !selectedDoctorId) return null
 
-  const doctor = mockDoctors.find((d) => d.id === selectedDoctorId)
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4">
+        <div className="bg-white border border-gray-200 rounded-sm shadow-lg w-full max-w-2xl p-6">
+          <div className="animate-pulse">
+            <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!apiDoctor?.data) return null
+
+  const doctor = transformApiDoctorToCard(apiDoctor.data)
   if (!doctor) return null
 
   const handleCall = () => {
