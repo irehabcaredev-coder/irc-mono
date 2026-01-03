@@ -7,6 +7,7 @@ import { useDoctorStore } from '@/store/useDoctorStore'
 import { createDoctorAccount, verifyOTP, loginDoctor } from '@/lib/doctorApi'
 import { ApiError } from '@/lib/apiClient'
 import Header from '@/components/doctor/Header'
+import { BRAND_NAME } from '@/lib/brand'
 
 export default function AuthPage() {
   const router = useRouter()
@@ -202,7 +203,7 @@ export default function AuthPage() {
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {mode === 'login' ? 'Welcome back' : 'Join eCare+'}
+                {mode === 'login' ? 'Welcome back' : `Join ${BRAND_NAME}`}
               </h1>
               <p className="text-gray-600">
                 {mode === 'login'

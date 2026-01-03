@@ -1,6 +1,6 @@
-# eCare Plus - Patient Frontend
+# iRehabCare - Patient Frontend
 
-Frontend application for eCare Plus patient portal. Built with Next.js, TailwindCSS, Zustand, and TanStack Query.
+Frontend application for iRehabCare patient portal. Built with Next.js, TailwindCSS, Zustand, and TanStack Query.
 
 ## Tech Stack
 

@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { ArrowRight, Search, Users, FileText, Eye, Heart, MessageCircle, Phone } from 'lucide-react'
 import Header from '@/components/doctor/Header'
+import BrandWordmark from '@/components/BrandWordmark'
+import { BRAND_NAME } from '@/lib/brand'
 
 export default function DoctorLandingPage() {
   return (
@@ -71,12 +73,12 @@ export default function DoctorLandingPage() {
                     </div>
                   </div>
 
-                  {/* Center: eCare+ Profile Card */}
+                  {/* Center: iRehabCare Profile Card */}
                   <div className="flex flex-col items-center">
                     <div className="w-1 h-24 bg-gradient-to-b from-primary-blue to-accent-red mb-2"></div>
                     <div className="bg-primary-blue rounded-xl p-6 shadow-lg border-2 border-accent-red/20">
                       <div className="text-white text-center">
-                        <div className="text-2xl font-bold mb-1">eCare+</div>
+                        <div className="text-2xl font-bold mb-1">{BRAND_NAME}</div>
                         <div className="text-xs opacity-90">Your Profile</div>
                         <div className="mt-4 pt-4 border-t border-white/20">
                           <div className="text-xs opacity-75">Dr. Name</div>
@@ -258,7 +260,7 @@ export default function DoctorLandingPage() {
       <section className="py-20 bg-primary-blue px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl font-bold text-white mb-4">
-            Join eCare+ Early Access
+            Join {BRAND_NAME} Early Access
           </h2>
           <p className="text-xl text-white/90 mb-8">
             Be among the first doctors to join our platform. Free access during early launch.
@@ -277,9 +279,8 @@ export default function DoctorLandingPage() {
       <footer className="bg-gray-900 text-gray-400 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
-            <div className="text-2xl font-bold">
-              <span className="text-primary-blue">eCare</span>
-              <span className="text-accent-red">+</span>
+            <div>
+              <BrandWordmark size="lg" showChakra={true} variant="dark" />
             </div>
             <div className="text-sm">
               For doctors • Professional healthcare platform
@@ -287,7 +288,7 @@ export default function DoctorLandingPage() {
           </div>
           <div className="border-t border-gray-800 pt-8 text-sm">
             <p className="text-gray-500">
-              eCare+ is a platform connecting patients with healthcare providers. This platform is for informational purposes only and does not replace professional medical advice, diagnosis, or treatment.
+              {BRAND_NAME} is a platform connecting patients with healthcare providers. This platform is for informational purposes only and does not replace professional medical advice, diagnosis, or treatment.
             </p>
           </div>
         </div>

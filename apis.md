@@ -1,6 +1,6 @@
-# ECare + API
+# iRehabCare API
 
-Complete API documentation for ECare+ including Doctor and Patient endpoints.
+Complete API documentation for iRehabCare including Doctor and Patient endpoints.
 
 **Base URL:** `http://localhost:3000`
 
@@ -8,21 +8,21 @@ Complete API documentation for ECare+ including Doctor and Patient endpoints.
 
 ## Table of Contents
 
-- [Doctor Endpoints](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [Onboarding Flow](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [Login](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [Fetch All Doctors](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [Fetch Doctor by ID](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [View Doctor Profile](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-- [Patient Endpoints](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [Onboarding Flow](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [Login](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [Fetch All Patients](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [Fetch Patient by ID](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-    - [Saved Doctors](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-        - [Save Doctor](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-        - [Unsave Doctor](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
-        - [Get Saved Doctors](https://www.notion.so/ECare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+- [Doctor Endpoints](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [Onboarding Flow](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [Login](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [Fetch All Doctors](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [Fetch Doctor by ID](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [View Doctor Profile](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+- [Patient Endpoints](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [Onboarding Flow](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [Login](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [Fetch All Patients](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [Fetch Patient by ID](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+    - [Saved Doctors](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+        - [Save Doctor](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+        - [Unsave Doctor](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
+        - [Get Saved Doctors](https://www.notion.so/iRehabCare-API-2d4a407f64bd80cc93bdc005b12e13ba?pvs=21)
 
 ---
 
@@ -405,7 +405,7 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "message": "Onboarding completed successfully! Welcome to ECare+.",
+  "message": "Onboarding completed successfully! Welcome to iRehabCare.",
   "data": {
     "doctorId": "uuid-string-here",
     "onboardingStep": "COMPLETE",

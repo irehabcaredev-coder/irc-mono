@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { LayoutDashboard, User, Users, Settings, LogOut, Menu, X } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { useRouter } from 'next/navigation'
+import BrandWordmark from '@/components/BrandWordmark'
 
 const navItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -59,10 +60,7 @@ export default function DashboardSidebar({ isOpen, onClose }) {
       >
         {/* Mobile Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 lg:hidden">
-          <span className="text-xl font-bold">
-            <span className="text-primary-blue">eCare</span>
-            <span className="text-accent-red">+</span>
-          </span>
+          <BrandWordmark size="md" />
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"

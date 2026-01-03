@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Settings, Bookmark, LogOut } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
+import BrandWordmark from '@/components/BrandWordmark'
 
 const cities = ['Bangalore', 'Mumbai', 'Delhi', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata']
 
@@ -67,8 +68,7 @@ export default function Header() {
         <div className="flex items-center justify-between h-16 relative">
           {/* Centered Logo */}
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
-            <span className="text-2xl font-bold text-primary-blue">eCare</span>
-            <span className="text-2xl font-bold text-accent-red">+</span>
+            <BrandWordmark size="lg" />
           </div>
 
           {/* Right: City Selector and Login */}

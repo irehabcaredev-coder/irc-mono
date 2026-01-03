@@ -10,6 +10,7 @@ import { usePatientStore } from '@/store/usePatientStore'
 import { filterDoctors } from '@/lib/filterDoctors'
 import { fetchAllDoctors } from '@/lib/doctorApi'
 import { transformApiDoctorToCard } from '@/lib/dataTransformers'
+import { BRAND_NAME } from '@/lib/brand'
 
 const languages = ['English', 'Hindi', 'Assamese', 'Bengali', 'Kannada', 'Marathi', 'Tamil', 'Telugu', 'Gujarati']
 
@@ -168,7 +169,7 @@ export default function PatientsPage() {
             {/* Footer Note */}
             <div className="pt-6 border-t border-gray-200">
               <p className="text-xs text-gray-500 text-center">
-                eCare Plus does not provide medical advice. Please consult a licensed professional.
+                {BRAND_NAME} does not provide medical advice. Please consult a licensed professional.
               </p>
             </div>
           </div>
