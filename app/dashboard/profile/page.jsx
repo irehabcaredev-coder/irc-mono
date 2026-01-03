@@ -27,6 +27,7 @@ export default function ProfilePage() {
 
   const [isEditing, setIsEditing] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
   const [basicData, setBasicData] = useState(doctorProfile.basic || {
     name: '',
     age: null,
@@ -52,13 +53,21 @@ export default function ProfilePage() {
 
   const setOnboarded = useDoctorStore((state) => state.setOnboarded)
 
+  // Wait for Zustand to hydrate from localStorage
   useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    // Only run auth checks after hydration
+    if (!isHydrated) return
+    
     if (!doctorAuth.isAuthed) {
       router.push('/auth')
     } else if (doctorAuth.onboardingStep !== 'COMPLETE') {
       router.push('/onboarding')
     }
-  }, [doctorAuth, router])
+  }, [doctorAuth, router, isHydrated])
 
   // Fetch doctor profile from API
   const { data: apiProfile, isLoading: profileLoading, refetch: refetchProfile } = useQuery({
@@ -153,6 +162,17 @@ export default function ProfilePage() {
       ? practiceData.availableDays.filter((d) => d !== day)
       : [...(practiceData.availableDays || []), day]
     setPracticeData((prev) => ({ ...prev, availableDays: days }))
+  }
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!doctorAuth.isAuthed || doctorAuth.onboardingStep !== 'COMPLETE') {

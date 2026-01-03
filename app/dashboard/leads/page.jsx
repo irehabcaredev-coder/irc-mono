@@ -12,14 +12,23 @@ export default function LeadsPage() {
   const router = useRouter()
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // Wait for Zustand to hydrate from localStorage
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   useEffect(() => {
+    // Only run auth checks after hydration
+    if (!isHydrated) return
+    
     if (!doctorAuth.isAuthed) {
       router.push('/auth')
     } else if (!doctorAuth.isOnboarded) {
       router.push('/onboarding')
     }
-  }, [doctorAuth, router])
+  }, [doctorAuth, router, isHydrated])
 
   const { data: leadEvents = [], isLoading } = useQuery({
     queryKey: ['leadEvents', doctorAuth.doctorId],
@@ -59,6 +68,17 @@ export default function LeadsPage() {
       hour: '2-digit',
       minute: '2-digit',
     })
+  }
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!doctorAuth.isAuthed || !doctorAuth.isOnboarded) {
