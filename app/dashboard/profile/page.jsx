@@ -164,8 +164,8 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-paper">
         <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
         <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="lg:ml-64 pt-20 sm:pt-24 lg:pt-16">
-          <div className="p-4 sm:p-6 lg:p-8">
+        <div className="lg:ml-64 min-h-screen">
+          <div className="p-4 sm:p-6 lg:p-8 pt-4 sm:pt-6 lg:pt-8">
             <div className="text-center py-12">
               <p className="text-gray-600">Loading profile...</p>
             </div>
@@ -179,8 +179,8 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-paper relative">
       <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
       <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="lg:ml-64 pt-20 sm:pt-24 lg:pt-16 relative z-0">
-        <div className="p-4 sm:p-6 lg:p-8">
+      <div className="lg:ml-64 min-h-screen">
+        <div className="p-4 sm:p-6 lg:p-8 pt-4 sm:pt-6 lg:pt-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Profile</h1>

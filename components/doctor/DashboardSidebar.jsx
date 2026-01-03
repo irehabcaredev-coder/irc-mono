@@ -20,13 +20,6 @@ export default function DashboardSidebar({ isOpen, onClose }) {
   const router = useRouter()
   const logout = useDoctorStore((state) => state.logout)
 
-  // Close sidebar when route changes on mobile
-  useEffect(() => {
-    if (isOpen && window.innerWidth < 1024) {
-      onClose()
-    }
-  }, [pathname, isOpen, onClose])
-
   const handleLogout = () => {
     logout()
     router.push('/')
@@ -45,18 +38,14 @@ export default function DashboardSidebar({ isOpen, onClose }) {
       {/* Sidebar */}
       <aside
         className={`
-          fixed lg:static
+          fixed lg:fixed
           top-0 left-0
-          w-64 h-screen lg:h-auto lg:min-h-screen
+          w-64 h-screen
           bg-white border-r border-gray-200
           z-[100] lg:z-auto
-          transform transition-transform duration-300 ease-in-out
+          transform transition-transform duration-300 ease-in-out lg:transform-none
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          lg:pt-16
         `}
-        onClick={(e) => {
-          e.stopPropagation()
-        }}
       >
         {/* Mobile Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 lg:hidden">
@@ -79,7 +68,8 @@ export default function DashboardSidebar({ isOpen, onClose }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => {
-                  if (window.innerWidth < 1024) {
+                  // Close sidebar on mobile when navigating
+                  if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                     onClose()
                   }
                 }}
@@ -109,42 +99,22 @@ export default function DashboardSidebar({ isOpen, onClose }) {
 
 // Mobile Menu Button Component
 export function MobileMenuButton({ onClick, isOpen = false }) {
-  const handleClick = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (onClick) {
+  const handleClick = () => {
+    if (onClick && !isOpen) {
       onClick()
     }
   }
 
+  if (isOpen) return null // Don't render when sidebar is open
+
   return (
     <button
       onClick={handleClick}
-      onMouseDown={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-      }}
-      onTouchStart={(e) => {
-        e.stopPropagation()
-      }}
-      className={`lg:hidden fixed top-4 left-4 z-[101] p-3 bg-white rounded-lg shadow-lg border-2 border-gray-300 hover:bg-gray-50 active:bg-gray-100 transition-all touch-manipulation cursor-pointer ${
-        isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
-      }`}
-      aria-label={isOpen ? "Close menu" : "Open menu"}
+      className="lg:hidden fixed top-4 left-4 z-[101] p-3 bg-white rounded-lg shadow-lg border-2 border-gray-300 hover:bg-gray-50 active:bg-gray-100 transition-all"
+      aria-label="Open menu"
       type="button"
-      style={{ 
-        WebkitTapHighlightColor: 'transparent',
-        touchAction: 'manipulation',
-        userSelect: 'none',
-        pointerEvents: isOpen ? 'none' : 'auto',
-        position: 'fixed',
-        zIndex: 101,
-        WebkitUserSelect: 'none',
-        MozUserSelect: 'none',
-        msUserSelect: 'none'
-      }}
     >
-      <Menu className="w-6 h-6 text-gray-700 pointer-events-none" />
+      <Menu className="w-6 h-6 text-gray-700" />
     </button>
   )
 }
