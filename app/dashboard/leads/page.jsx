@@ -1,16 +1,17 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { fetchLeadEvents } from '@/lib/doctorApi'
-import DashboardSidebar from '@/components/doctor/DashboardSidebar'
+import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
 import { Eye, Heart, MessageCircle, Phone } from 'lucide-react'
 
 export default function LeadsPage() {
   const router = useRouter()
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (!doctorAuth.isAuthed) {
@@ -65,20 +66,21 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper">
-      <DashboardSidebar />
-      <div className="ml-64 pt-16">
-        <div className="p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Leads</h1>
-            <p className="text-gray-600">Track patient interest and engagement with your profile</p>
+    <div className="min-h-screen bg-paper relative">
+      <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
+      <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="lg:ml-64 pt-20 sm:pt-24 lg:pt-16 relative z-0">
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Leads</h1>
+            <p className="text-sm sm:text-base text-gray-600">Track patient interest and engagement with your profile</p>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
             {isLoading ? (
-              <div className="p-12 text-center">
+              <div className="p-8 sm:p-12 text-center">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue"></div>
-                <p className="mt-4 text-gray-600">Loading leads...</p>
+                <p className="mt-4 text-sm sm:text-base text-gray-600">Loading leads...</p>
               </div>
             ) : leadEvents.length > 0 ? (
               <div className="divide-y divide-gray-200">
@@ -89,17 +91,17 @@ export default function LeadsPage() {
                   return (
                     <div
                       key={event.eventId}
-                      className="p-6 hover:bg-gray-50 transition-colors"
+                      className="p-4 sm:p-6 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-4 flex-1">
-                          <div className={`w-12 h-12 ${colorClass} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                            <Icon className="w-6 h-6" />
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0">
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 ${colorClass} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                            <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <h3 className="text-lg font-semibold text-gray-900">{event.type}</h3>
-                              <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-2 gap-2">
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{event.type}</h3>
+                              <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded w-fit">
                                 {event.type === 'Profile View' && 'View'}
                                 {event.type === 'Saved' && 'Interest'}
                                 {event.type === 'Clicked WhatsApp' && 'Contact'}
@@ -109,23 +111,23 @@ export default function LeadsPage() {
                             <div className="space-y-1">
                               {event.patientName ? (
                                 <>
-                                  <p className="text-gray-900 font-medium">
+                                  <p className="text-sm sm:text-base text-gray-900 font-medium truncate">
                                     {event.patientName}
                                   </p>
                                   {event.patientCity && (
-                                    <p className="text-sm text-gray-600">
+                                    <p className="text-xs sm:text-sm text-gray-600 truncate">
                                       {event.patientCity}
                                     </p>
                                   )}
                                 </>
                               ) : (
-                                <p className="text-gray-600 italic">Anonymous visitor</p>
+                                <p className="text-xs sm:text-sm text-gray-600 italic">Anonymous visitor</p>
                               )}
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">
+                        <div className="text-left sm:text-right sm:ml-4">
+                          <p className="text-xs sm:text-sm font-medium text-gray-900">
                             {formatDate(event.createdAt)}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
@@ -138,10 +140,10 @@ export default function LeadsPage() {
                 })}
               </div>
             ) : (
-              <div className="p-12 text-center">
-                <Eye className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No leads yet</h3>
-                <p className="text-gray-600">
+              <div className="p-8 sm:p-12 text-center">
+                <Eye className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-gray-400 mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No leads yet</h3>
+                <p className="text-sm sm:text-base text-gray-600">
                   When patients view, save, or contact you, those interactions will appear here.
                 </p>
               </div>

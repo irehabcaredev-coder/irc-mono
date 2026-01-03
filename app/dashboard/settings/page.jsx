@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDoctorStore } from '@/store/useDoctorStore'
-import DashboardSidebar from '@/components/doctor/DashboardSidebar'
+import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
 import { LogOut } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
   const logout = useDoctorStore((state) => state.logout)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (!doctorAuth.isAuthed) {
@@ -29,46 +30,47 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper">
-      <DashboardSidebar />
-      <div className="ml-64 pt-16">
-        <div className="p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-            <p className="text-gray-600">Manage your account and profile settings</p>
+    <div className="min-h-screen bg-paper relative">
+      <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
+      <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="lg:ml-64 pt-20 sm:pt-24 lg:pt-16 relative z-0">
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Settings</h1>
+            <p className="text-sm sm:text-base text-gray-600">Manage your account and profile settings</p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Account Settings */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Account</h2>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Account</h2>
               <div className="space-y-4">
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
-                  <div>
-                    <p className="font-medium text-gray-900">Email</p>
-                    <p className="text-sm text-gray-600">{doctorAuth.email}</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 border-b border-gray-200 gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base text-gray-900">Email</p>
+                    <p className="text-xs sm:text-sm text-gray-600 truncate">{doctorAuth.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 border-b border-gray-200 gap-2">
                   <div>
-                    <p className="font-medium text-gray-900">Sign-in Method</p>
-                    <p className="text-sm text-gray-600 capitalize">{doctorAuth.authProvider || 'Email'}</p>
+                    <p className="font-medium text-sm sm:text-base text-gray-900">Sign-in Method</p>
+                    <p className="text-xs sm:text-sm text-gray-600 capitalize">{doctorAuth.authProvider || 'Email'}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Account Actions */}
-            <div className="bg-white rounded-xl border border-red-200 shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Account Actions</h2>
-              <div className="flex items-center justify-between py-4">
-                <div>
-                  <p className="font-medium text-gray-900">Sign out</p>
-                  <p className="text-sm text-gray-600">Sign out of your account</p>
+            <div className="bg-white rounded-xl border border-red-200 shadow-sm p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Account Actions</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 gap-4">
+                <div className="flex-1">
+                  <p className="font-medium text-sm sm:text-base text-gray-900">Sign out</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Sign out of your account</p>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center px-4 py-2 border border-red-300 text-accent-red rounded-lg font-semibold hover:bg-red-50 transition-colors"
+                  className="flex items-center justify-center px-4 py-2 border border-red-300 text-accent-red rounded-lg font-semibold hover:bg-red-50 transition-colors w-full sm:w-auto"
                 >
                   <LogOut className="w-5 h-5 mr-2" />
                   Sign Out

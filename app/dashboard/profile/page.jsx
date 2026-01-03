@@ -7,7 +7,7 @@ import { useDoctorStore } from '@/store/useDoctorStore'
 import { fetchDoctorProfile, updateDoctorProfile } from '@/lib/doctorApi'
 import { ApiError } from '@/lib/apiClient'
 import { transformApiProfileToUI } from '@/lib/dataTransformers'
-import DashboardSidebar from '@/components/doctor/DashboardSidebar'
+import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
 import { Edit2, Save, X } from 'lucide-react'
 
 const genders = ['Male', 'Female', 'Other', 'Prefer not to say']
@@ -26,6 +26,7 @@ export default function ProfilePage() {
   const updatePracticeDetails = useDoctorStore((state) => state.updatePracticeDetails)
 
   const [isEditing, setIsEditing] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [basicData, setBasicData] = useState(doctorProfile.basic || {
     name: '',
     age: null,
@@ -161,9 +162,10 @@ export default function ProfilePage() {
   if (profileLoading) {
     return (
       <div className="min-h-screen bg-paper">
-        <DashboardSidebar />
-        <div className="ml-64 pt-16">
-          <div className="p-8">
+        <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
+        <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="lg:ml-64 pt-20 sm:pt-24 lg:pt-16">
+          <div className="p-4 sm:p-6 lg:p-8">
             <div className="text-center py-12">
               <p className="text-gray-600">Loading profile...</p>
             </div>
@@ -174,35 +176,36 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper">
-      <DashboardSidebar />
-      <div className="ml-64 pt-16">
-        <div className="p-8">
-          <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-paper relative">
+      <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
+      <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="lg:ml-64 pt-20 sm:pt-24 lg:pt-16 relative z-0">
+        <div className="p-4 sm:p-6 lg:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Profile</h1>
-              <p className="text-gray-600">Manage your professional profile information</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Profile</h1>
+              <p className="text-sm sm:text-base text-gray-600">Manage your professional profile information</p>
             </div>
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center px-4 py-2 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors"
+                className="flex items-center justify-center px-4 py-2 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors w-full sm:w-auto"
               >
                 <Edit2 className="w-5 h-5 mr-2" />
                 Edit Profile
               </button>
             ) : (
-              <div className="flex space-x-3">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
                 <button
                   onClick={handleCancel}
-                  className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors w-full sm:w-auto"
                 >
                   <X className="w-5 h-5 mr-2" />
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex items-center px-4 py-2 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors"
+                  className="flex items-center justify-center px-4 py-2 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors w-full sm:w-auto"
                 >
                   <Save className="w-5 h-5 mr-2" />
                   Save Changes
@@ -211,10 +214,10 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Basic Details */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Basic Details</h2>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 lg:p-8">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Basic Details</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
@@ -293,7 +296,7 @@ export default function ProfilePage() {
                           key={lang}
                           type="button"
                           onClick={() => toggleLanguage(lang)}
-                          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg font-medium transition-colors ${
                             basicData.languages?.includes(lang)
                               ? 'bg-primary-blue text-white'
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -304,7 +307,7 @@ export default function ProfilePage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-900">
+                    <p className="text-sm sm:text-base text-gray-900">
                       {basicData.languages?.length > 0 ? basicData.languages.join(', ') : 'Not set'}
                     </p>
                   )}
@@ -313,8 +316,8 @@ export default function ProfilePage() {
             </div>
 
             {/* Professional Details */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Professional Details</h2>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 lg:p-8">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Professional Details</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Specialty</label>
@@ -379,9 +382,9 @@ export default function ProfilePage() {
             </div>
 
             {/* Practice Details */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Practice Details</h2>
-              <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 lg:p-8">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Practice Details</h2>
+              <div className="space-y-4 sm:space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                   {isEditing ? (
@@ -435,7 +438,7 @@ export default function ProfilePage() {
                           key={day}
                           type="button"
                           onClick={() => toggleDay(day)}
-                          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg font-medium transition-colors ${
                             practiceData.availableDays?.includes(day)
                               ? 'bg-primary-blue text-white'
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -446,7 +449,7 @@ export default function ProfilePage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-900">
+                    <p className="text-sm sm:text-base text-gray-900">
                       {practiceData.availableDays?.length > 0
                         ? practiceData.availableDays.join(', ')
                         : 'Not set'}

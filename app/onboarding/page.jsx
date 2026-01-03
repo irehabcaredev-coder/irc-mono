@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight, ArrowLeft, Check } from 'lucide-react'
+import { ArrowRight, ArrowLeft } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import {
   submitPersonalInfo,
@@ -81,13 +81,14 @@ export default function OnboardingPage() {
       router.push('/dashboard')
       return
     } else if (onboardingStep === 'PERSONAL_INFO_COMPLETE') {
-      setStep(2) // Start at professional info
+      // PERSONAL_INFO_COMPLETE means email is verified and ready to enter personal info
+      setStep(1) // Start at personal info (step 1)
     } else if (onboardingStep === 'PROFESSIONAL_INFO_COMPLETE') {
-      setStep(3) // Start at availability
+      setStep(2) // Start at professional info (step 2)
     } else if (onboardingStep === 'AVAILABILITY_COMPLETE') {
-      setStep(4) // Shouldn't happen, but handle it
+      setStep(3) // Start at availability (step 3)
     } else {
-      setStep(1) // Start at personal info (step 1 in onboarding flow)
+      setStep(1) // Default: Start at personal info (step 1 in onboarding flow)
     }
   }, [doctorAuth, router])
 
@@ -264,32 +265,6 @@ export default function OnboardingPage() {
       <div className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              {[1, 2, 3].map((s) => (
-                <div key={s} className="flex items-center flex-1">
-                  <div className="flex items-center">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                        s < step
-                          ? 'bg-primary-blue text-white'
-                          : s === step
-                          ? 'bg-primary-blue text-white ring-4 ring-primary-blue/20'
-                          : 'bg-gray-200 text-gray-600'
-                      }`}
-                    >
-                      {s < step ? <Check className="w-5 h-5" /> : s}
-                    </div>
-                    {s < 3 && (
-                      <div
-                        className={`h-1 flex-1 mx-2 ${
-                          s < step ? 'bg-primary-blue' : 'bg-gray-200'
-                        }`}
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
             <div className="text-center">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 {step === 1 && 'Personal Information'}
