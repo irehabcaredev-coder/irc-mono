@@ -8,6 +8,7 @@ import { fetchDoctorProfile, updateDoctorProfile } from '@/lib/doctorApi'
 import { ApiError } from '@/lib/apiClient'
 import { transformApiProfileToUI } from '@/lib/dataTransformers'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
+import FeedbackButton from '@/components/doctor/FeedbackButton'
 import { Edit2, Save, X } from 'lucide-react'
 
 const genders = ['Male', 'Female', 'Other', 'Prefer not to say']
@@ -197,6 +198,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-paper relative">
+      <FeedbackButton />
       <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
       <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="lg:ml-64 min-h-screen">

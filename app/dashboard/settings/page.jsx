@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
+import FeedbackButton from '@/components/doctor/FeedbackButton'
 import { LogOut } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -53,6 +54,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-paper relative">
       <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
       <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <FeedbackButton />
       <div className="lg:ml-64 min-h-screen">
         <div className="p-4 sm:p-6 lg:p-8 pt-4 sm:pt-6 lg:pt-8">
           <div className="mb-6 sm:mb-8">
