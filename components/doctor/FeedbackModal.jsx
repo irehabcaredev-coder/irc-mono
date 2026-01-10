@@ -88,11 +88,8 @@ export default function FeedbackModal({ isOpen, onClose }) {
       return
     }
 
-    // Check for webhook URL
-    if (!process.env.NEXT_PUBLIC_DOCTOR_FEEDBACK_WEBHOOK_URL) {
-      setValidationError('Feedback webhook URL is not configured. Please contact support.')
-      return
-    }
+    // Note: Webhook URL is configured server-side only (not exposed to client)
+    // The API route will handle the configuration check
 
     // Submit feedback with auto-detected screen name
     mutation.mutate({ 

@@ -7,8 +7,9 @@ import { NextResponse } from 'next/server'
  */
 export async function POST(request) {
   try {
-    // Get webhook URL from environment variable
-    const webhookUrl = process.env.NEXT_PUBLIC_DOCTOR_FEEDBACK_WEBHOOK_URL
+    // Get webhook URL from server-side environment variable (NOT NEXT_PUBLIC_)
+    // This keeps the webhook URL out of the client bundle
+    const webhookUrl = process.env.DOCTOR_FEEDBACK_WEBHOOK_URL
 
     if (!webhookUrl) {
       return NextResponse.json(
