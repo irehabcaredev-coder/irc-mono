@@ -1,10 +1,11 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useDoctorStore } from '@/store/useDoctorStore'
 
-export default function GoogleOAuthCallback() {
+function GoogleOAuthCallbackInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const setAuth = useDoctorStore((state) => state.setAuth)
@@ -109,4 +110,21 @@ export default function GoogleOAuthCallback() {
   }
 
   return null
+}
+
+export default function GoogleOAuthCallback() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-paper flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+            <p className="text-gray-600">Completing authentication...</p>
+          </div>
+        </div>
+      }
+    >
+      <GoogleOAuthCallbackInner />
+    </Suspense>
+  )
 }
