@@ -39,6 +39,7 @@ export default function OnboardingPage() {
   const [errors, setErrors] = useState({})
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [isHydrated, setIsHydrated] = useState(false)
 
   // Step 2: Basic Details state
   const [basicData, setBasicData] = useState(doctorProfile.basic || {
@@ -68,7 +69,15 @@ export default function OnboardingPage() {
     },
   })
 
+  // Wait for Zustand to hydrate from localStorage
   useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    // Only run auth checks after hydration
+    if (!isHydrated) return
+
     // Redirect if not authenticated
     if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
       router.push('/auth')
@@ -90,7 +99,7 @@ export default function OnboardingPage() {
     } else {
       setStep(1) // Default: Start at personal info (step 1 in onboarding flow)
     }
-  }, [doctorAuth, router])
+  }, [doctorAuth, router, isHydrated])
 
   const validateStep = (stepNum) => {
     const newErrors = {}
@@ -257,6 +266,17 @@ export default function OnboardingPage() {
     if (errors.availableDays) {
       setErrors((prev) => ({ ...prev, availableDays: null }))
     }
+  }
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
