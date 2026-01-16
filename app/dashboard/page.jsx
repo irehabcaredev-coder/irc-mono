@@ -11,7 +11,7 @@ import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/Dashboar
 import FeedbackButton from '@/components/doctor/FeedbackButton'
 import { Eye, Heart, MessageCircle, Phone, TrendingUp } from 'lucide-react'
 
-export default function DashboardOverview() {
+function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
@@ -23,11 +23,17 @@ export default function DashboardOverview() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
 
-  // JWT Parser
+  // JWT Parser (Robust for base64url)
   const parseJwt = (token) => {
     try {
-      return JSON.parse(atob(token.split('.')[1]));
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
     } catch (e) {
+      console.error("JWT Parse Error:", e);
       return null;
     }
   };
@@ -36,6 +42,23 @@ export default function DashboardOverview() {
   useEffect(() => {
     setIsHydrated(true)
   }, [])
+
+  // Fetch doctor profile from API
+  const { data: apiProfile, isLoading: profileLoading } = useQuery({
+    queryKey: ['doctorProfile', doctorAuth.doctorId],
+    queryFn: () => fetchDoctorProfile(doctorAuth.doctorId),
+    enabled: !!doctorAuth.doctorId && doctorAuth.isAuthed,
+  })
+
+  // Update store when API profile is fetched
+  useEffect(() => {
+    if (apiProfile?.success && apiProfile?.data) {
+      const uiProfile = transformApiProfileToUI(apiProfile.data)
+      if (uiProfile) {
+        setOnboarded(uiProfile)
+      }
+    }
+  }, [apiProfile, setOnboarded])
 
   // Handle URL token and Auth
   useEffect(() => {
@@ -145,7 +168,8 @@ export default function DashboardOverview() {
     )
   }
 
-  if (!doctorAuth.isAuthed || doctorAuth.onboardingStep !== 'COMPLETE') {
+  // Allow render if we have a token from URL to show something while syncing
+  if ((!doctorAuth.isAuthed && !tokenFromUrl) || (doctorAuth.onboardingStep !== 'COMPLETE' && !tokenFromUrl)) {
     return null
   }
 
@@ -306,6 +330,21 @@ export default function DashboardOverview() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function DashboardOverview() {
+  return (
+    <Suspense fallback={
+       <div className="min-h-screen bg-paper flex items-center justify-center">
+        <div className="text-center">
+           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+           <p className="text-gray-600">Loading...</p>
+        </div>
+       </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   )
 }
 
