@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, ArrowLeft } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
@@ -25,7 +25,7 @@ const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const currentYear = new Date().getFullYear()
 const graduationYears = Array.from({ length: currentYear - 1994 }, (_, i) => currentYear - i)
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const router = useRouter()
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
   const setAuth = useDoctorStore((state) => state.setAuth)
@@ -91,9 +91,21 @@ export default function OnboardingPage() {
     // Only run auth checks after hydration
     if (!isHydrated) return
 
+    // If matches token from URL, try to auth first
+    if (tokenFromUrl) {
+         const decoded = parseJwt(tokenFromUrl)
+         if (decoded && decoded.email && decoded.doctorId) {
+             setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
+             return // Don't redirect, we just set auth
+         }
+    }
+
     // Redirect if not authenticated
     if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
-      router.push('/auth')
+      // If we tried to auth from token above and failed, or didn't have token, then redirect
+      if (!tokenFromUrl) {
+         router.push('/auth')
+      }
       return
     }
 
@@ -112,7 +124,7 @@ export default function OnboardingPage() {
     } else {
       setStep(1) // Default: Start at personal info (step 1 in onboarding flow)
     }
-  }, [doctorAuth, router, isHydrated])
+  }, [doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep, router, tokenFromUrl, setAuth, isHydrated])
 
   const validateStep = (stepNum) => {
     const newErrors = {}
@@ -657,5 +669,20 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <div className="text-center">
+           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+           <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
   )
 }
