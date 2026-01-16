@@ -11,6 +11,7 @@ import { ApiError } from '@/lib/apiClient'
 import { mapGenderToAPI } from '@/lib/dataTransformers'
 
 const cities = ['Bangalore', 'Mumbai', 'Delhi', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata', 'Ahmedabad', 'Lucknow', 'Jaipur']
+const issuesOptions = ['Speech & Communication', 'Hearing', 'Child-related', 'Adult / Age-related', 'Not sure']
 
 export default function AuthModal() {
   const {
@@ -33,6 +34,7 @@ export default function AuthModal() {
   const [gender, setGender] = useState('')
   const [phone, setPhone] = useState('')
   const [city, setCity] = useState('')
+  const [issues, setIssues] = useState('')
   const [ageError, setAgeError] = useState('')
   const [phoneError, setPhoneError] = useState('')
   const [otpError, setOtpError] = useState('')
@@ -233,6 +235,7 @@ export default function AuthModal() {
     setGender('')
     setPhone('')
     setCity('')
+    setIssues('')
     setOtpSent(false)
     setPatientId(null)
     setMockOtp(null)
@@ -363,6 +366,12 @@ export default function AuthModal() {
                 setOtpSent(false)
                 setPatientId(null)
                 setMockOtp(null)
+                setName('')
+                setAge('')
+                setGender('')
+                setPhone('')
+                setCity('')
+                setIssues('')
               }}
               className={`px-3 py-1 text-sm font-medium ${
                 authMode === 'login'
@@ -385,6 +394,12 @@ export default function AuthModal() {
                 setOtpSent(false)
                 setPatientId(null)
                 setMockOtp(null)
+                setName('')
+                setAge('')
+                setGender('')
+                setPhone('')
+                setCity('')
+                setIssues('')
               }}
               className={`px-3 py-1 text-sm font-medium ${
                 authMode === 'register'
@@ -667,6 +682,23 @@ export default function AuthModal() {
                   {cities.map((c) => (
                     <option key={c} value={c}>
                       {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  What issues are you facing?
+                </label>
+                <select
+                  value={issues}
+                  onChange={(e) => setIssues(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+                >
+                  <option value="">Select an option</option>
+                  {issuesOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
                     </option>
                   ))}
                 </select>
