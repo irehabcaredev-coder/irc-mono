@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { fetchDoctorProfile } from '@/lib/doctorApi'
@@ -13,44 +13,70 @@ import { Eye, Heart, MessageCircle, Phone, TrendingUp } from 'lucide-react'
 
 export default function DashboardOverview() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const tokenFromUrl = searchParams.get('token')
+  
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
+  const setAuth = useDoctorStore((state) => state.setAuth)
   const doctorProfile = useDoctorStore((state) => state.doctorProfile)
   const setOnboarded = useDoctorStore((state) => state.setOnboarded)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
+
+  // JWT Parser
+  const parseJwt = (token) => {
+    try {
+      return JSON.parse(atob(token.split('.')[1]));
+    } catch (e) {
+      return null;
+    }
+  };
 
   // Wait for Zustand to hydrate from localStorage
   useEffect(() => {
     setIsHydrated(true)
   }, [])
 
-  // Fetch doctor profile from API
-  const { data: apiProfile, isLoading: profileLoading } = useQuery({
-    queryKey: ['doctorProfile', doctorAuth.doctorId],
-    queryFn: () => fetchDoctorProfile(doctorAuth.doctorId),
-    enabled: !!doctorAuth.doctorId && doctorAuth.isAuthed,
-  })
-
-  // Update store when API profile is fetched
+  // Handle URL token and Auth
   useEffect(() => {
-    if (apiProfile?.success && apiProfile?.data) {
-      const uiProfile = transformApiProfileToUI(apiProfile.data)
-      if (uiProfile) {
-        setOnboarded(uiProfile)
-      }
-    }
-  }, [apiProfile, setOnboarded])
-
-  useEffect(() => {
-    // Only run auth checks after hydration
     if (!isHydrated) return
-    
-    if (!doctorAuth.isAuthed) {
-      router.push('/auth')
-    } else if (doctorAuth.onboardingStep !== 'COMPLETE') {
-      router.push('/onboarding')
+
+    const handleAuth = () => {
+        // 1. Check for token in URL
+        if (tokenFromUrl) {
+            localStorage.setItem('doctor_token', tokenFromUrl)
+            
+            const decoded = parseJwt(tokenFromUrl)
+            if (decoded && decoded.email && decoded.doctorId) {
+                // Update store with initial auth info so useQuery can run
+                setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
+                return 
+            }
+        }
+
+        // 2. Regular auth check
+        if (!doctorAuth.isAuthed) {
+           // Double check localStorage
+           const localToken = localStorage.getItem('doctor_token')
+           if (localToken) {
+              const decoded = parseJwt(localToken)
+              if (decoded) {
+                setAuth(decoded.email, 'email', decoded.doctorId, localToken)
+                return
+              }
+           }
+           router.push('/auth')
+        } else if (doctorAuth.onboardingStep !== 'COMPLETE') {
+           // If we have a token from URL, let the profile fetch (useQuery) determine the true step
+           // instead of redirecting immediately based on potentially stale local state
+           if (!tokenFromUrl) {
+               router.push('/onboarding')
+           }
+        }
     }
-  }, [doctorAuth, router, isHydrated])
+    
+    handleAuth()
+  }, [isHydrated, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.onboardingStep, router, setAuth])
 
   // TODO: Fetch lead events from API when endpoint is available
   // const { data: leadEvents = [] } = useQuery({

@@ -9,6 +9,8 @@ import {
   submitProfessionalInfo,
   submitAvailability,
 } from '@/lib/doctorApi'
+import { fetchDoctorProfile } from '@/lib/doctorApi'
+
 import { ApiError } from '@/lib/apiClient'
 import {
   transformBasicDetailsToAPI,
@@ -91,40 +93,87 @@ function OnboardingContent() {
     // Only run auth checks after hydration
     if (!isHydrated) return
 
-    // If matches token from URL, try to auth first
-    if (tokenFromUrl) {
-         const decoded = parseJwt(tokenFromUrl)
-         if (decoded && decoded.email && decoded.doctorId) {
-             setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
-             return // Don't redirect, we just set auth
-         }
-    }
-
-    // Redirect if not authenticated
-    if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
-      // If we tried to auth from token above and failed, or didn't have token, then redirect
-      if (!tokenFromUrl) {
-         router.push('/auth')
+    const handleAuth = async () => {
+      // 1. Check for token in URL
+      if (tokenFromUrl) {
+          // IMMEDIATE PRIORITY: Save token to localStorage so API calls work
+          localStorage.setItem('doctor_token', tokenFromUrl)
+          
+          const decoded = parseJwt(tokenFromUrl)
+          if (decoded && decoded.email && decoded.doctorId) {
+              // Update store with initial auth info
+              setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
+              
+              // Sync with backend to get latest onboarding step and data
+              try {
+                const profileResult = await fetchDoctorProfile(decoded.doctorId)
+                if (profileResult.success && profileResult.data) {
+                  const { onboardingStep, ...profileData } = profileResult.data
+                  
+                  // Update store with latest step
+                  setOnboardingStep(onboardingStep)
+                  
+                  // Update profile data if available
+                  if (profileData.personalInfo) {
+                    updateBasicDetails(profileData.personalInfo)
+                  }
+                  if (profileData.professionalInfo) {
+                    updateProfessionalDetails(profileData.professionalInfo)
+                  }
+                  if (profileData.availability) {
+                    updatePracticeDetails(profileData.availability)
+                  }
+                  
+                  // If complete, mark as onboarded
+                   if (onboardingStep === 'COMPLETE') {
+                      setOnboarded(profileResult.data)
+                   }
+                }
+              } catch (error) {
+                console.error("Failed to sync profile:", error)
+                // Continue with URL token, user might be new
+              }
+              return // Stay on page to complete onboarding
+          }
       }
-      return
+
+      // 2. If no URL token, check if already authenticated
+      if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
+        // Double check localStorage just in case
+        const localToken = localStorage.getItem('doctor_token')
+        if (localToken) {
+           const decoded = parseJwt(localToken)
+           if (decoded) {
+             setAuth(decoded.email, 'email', decoded.doctorId, localToken)
+             return
+           }
+        }
+        
+        router.push('/auth')
+        return
+      }
+
+      // 3. Determine starting step based on onboarding step from API
+      // Use the store's onboardingStep which might have just been updated above
+      const currentStep = doctorAuth.onboardingStep
+      
+      if (currentStep === 'COMPLETE') {
+        router.push('/dashboard')
+        return
+      } else if (currentStep === 'PERSONAL_INFO_COMPLETE') {
+        setStep(2) // Move to professional info
+      } else if (currentStep === 'PROFESSIONAL_INFO_COMPLETE') {
+        setStep(3) // Move to availability
+      } else if (currentStep === 'AVAILABILITY_COMPLETE') {
+        router.push('/dashboard') // Should be complete
+      } else {
+        setStep(1) // Default: Start at personal info
+      }
     }
 
-    // Determine starting step based on onboarding step from API
-    const onboardingStep = doctorAuth.onboardingStep
-    if (onboardingStep === 'COMPLETE') {
-      router.push('/dashboard')
-      return
-    } else if (onboardingStep === 'PERSONAL_INFO_COMPLETE') {
-      // PERSONAL_INFO_COMPLETE means email is verified and ready to enter personal info
-      setStep(1) // Start at personal info (step 1)
-    } else if (onboardingStep === 'PROFESSIONAL_INFO_COMPLETE') {
-      setStep(2) // Start at professional info (step 2)
-    } else if (onboardingStep === 'AVAILABILITY_COMPLETE') {
-      setStep(3) // Start at availability (step 3)
-    } else {
-      setStep(1) // Default: Start at personal info (step 1 in onboarding flow)
-    }
-  }, [doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep, router, tokenFromUrl, setAuth, isHydrated])
+    handleAuth()
+    
+  }, [isHydrated, tokenFromUrl, router, setAuth, setOnboardingStep, setOnboarded, updateBasicDetails, updateProfessionalDetails, updatePracticeDetails, doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep])
 
   const validateStep = (stepNum) => {
     const newErrors = {}
