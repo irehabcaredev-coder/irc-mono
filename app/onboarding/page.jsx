@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, ArrowLeft } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import {
@@ -28,6 +28,7 @@ const graduationYears = Array.from({ length: currentYear - 1994 }, (_, i) => cur
 export default function OnboardingPage() {
   const router = useRouter()
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
+  const setAuth = useDoctorStore((state) => state.setAuth)
   const doctorProfile = useDoctorStore((state) => state.doctorProfile)
   const setOnboardingStep = useDoctorStore((state) => state.setOnboardingStep)
   const setOnboarded = useDoctorStore((state) => state.setOnboarded)
@@ -35,10 +36,22 @@ export default function OnboardingPage() {
   const updateProfessionalDetails = useDoctorStore((state) => state.updateProfessionalDetails)
   const updatePracticeDetails = useDoctorStore((state) => state.updatePracticeDetails)
 
+  const searchParams = useSearchParams()
+  const tokenFromUrl = searchParams.get('token')
+
   const [step, setStep] = useState(1)
   const [errors, setErrors] = useState({})
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
+
+  // JWT Parser
+  const parseJwt = (token) => {
+    try {
+      return JSON.parse(atob(token.split('.')[1]));
+    } catch (e) {
+      return null;
+    }
+  };
 
   // Step 2: Basic Details state
   const [basicData, setBasicData] = useState(doctorProfile.basic || {
@@ -69,28 +82,48 @@ export default function OnboardingPage() {
   })
 
   useEffect(() => {
-    // Redirect if not authenticated
-    if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
-      router.push('/auth')
-      return
+    const initializeAuth = () => {
+      // If we have a token in URL and aren't authenticated yet (or force refresh)
+      if (tokenFromUrl) {
+         const decoded = parseJwt(tokenFromUrl)
+         if (decoded && decoded.email && decoded.doctorId) {
+             // Assuming 'google' as provider since this flow is mentioned for google signin
+             // The token itself might not have onboardingStep, so we might need to rely on what the API returns later 
+             // or defaults.
+             // setAuth signature: (email, provider, doctorId, token = null, onboardingStep = null)
+             setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
+             return // Don't redirect, we just set auth
+         }
+      }
+
+      // Standard redirect check
+      if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
+        // If we tried to auth from token above and failed, or didn't have token, then redirect
+        if (!tokenFromUrl) {
+           router.push('/auth')
+        }
+        return
+      }
+
+      // Determine starting step based on onboarding step from API
+      const onboardingStep = doctorAuth.onboardingStep
+      if (onboardingStep === 'COMPLETE') {
+        router.push('/dashboard')
+        return
+      } else if (onboardingStep === 'PERSONAL_INFO_COMPLETE') {
+        // PERSONAL_INFO_COMPLETE means email is verified and ready to enter personal info
+        setStep(1) // Start at personal info (step 1)
+      } else if (onboardingStep === 'PROFESSIONAL_INFO_COMPLETE') {
+        setStep(2) // Start at professional info (step 2)
+      } else if (onboardingStep === 'AVAILABILITY_COMPLETE') {
+        setStep(3) // Start at availability (step 3)
+      } else {
+        setStep(1) // Default: Start at personal info (step 1 in onboarding flow)
+      }
     }
 
-    // Determine starting step based on onboarding step from API
-    const onboardingStep = doctorAuth.onboardingStep
-    if (onboardingStep === 'COMPLETE') {
-      router.push('/dashboard')
-      return
-    } else if (onboardingStep === 'PERSONAL_INFO_COMPLETE') {
-      // PERSONAL_INFO_COMPLETE means email is verified and ready to enter personal info
-      setStep(1) // Start at personal info (step 1)
-    } else if (onboardingStep === 'PROFESSIONAL_INFO_COMPLETE') {
-      setStep(2) // Start at professional info (step 2)
-    } else if (onboardingStep === 'AVAILABILITY_COMPLETE') {
-      setStep(3) // Start at availability (step 3)
-    } else {
-      setStep(1) // Default: Start at personal info (step 1 in onboarding flow)
-    }
-  }, [doctorAuth, router])
+    initializeAuth()
+  }, [doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep, router, tokenFromUrl, setAuth])
 
   const validateStep = (stepNum) => {
     const newErrors = {}
