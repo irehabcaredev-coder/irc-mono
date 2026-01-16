@@ -43,6 +43,7 @@ export default function OnboardingPage() {
   const [errors, setErrors] = useState({})
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [isHydrated, setIsHydrated] = useState(false)
 
   // JWT Parser
   const parseJwt = (token) => {
@@ -81,49 +82,37 @@ export default function OnboardingPage() {
     },
   })
 
+  // Wait for Zustand to hydrate from localStorage
   useEffect(() => {
-    const initializeAuth = () => {
-      // If we have a token in URL and aren't authenticated yet (or force refresh)
-      if (tokenFromUrl) {
-         const decoded = parseJwt(tokenFromUrl)
-         if (decoded && decoded.email && decoded.doctorId) {
-             // Assuming 'google' as provider since this flow is mentioned for google signin
-             // The token itself might not have onboardingStep, so we might need to rely on what the API returns later 
-             // or defaults.
-             // setAuth signature: (email, provider, doctorId, token = null, onboardingStep = null)
-             setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
-             return // Don't redirect, we just set auth
-         }
-      }
+    setIsHydrated(true)
+  }, [])
 
-      // Standard redirect check
-      if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
-        // If we tried to auth from token above and failed, or didn't have token, then redirect
-        if (!tokenFromUrl) {
-           router.push('/auth')
-        }
-        return
-      }
+  useEffect(() => {
+    // Only run auth checks after hydration
+    if (!isHydrated) return
 
-      // Determine starting step based on onboarding step from API
-      const onboardingStep = doctorAuth.onboardingStep
-      if (onboardingStep === 'COMPLETE') {
-        router.push('/dashboard')
-        return
-      } else if (onboardingStep === 'PERSONAL_INFO_COMPLETE') {
-        // PERSONAL_INFO_COMPLETE means email is verified and ready to enter personal info
-        setStep(1) // Start at personal info (step 1)
-      } else if (onboardingStep === 'PROFESSIONAL_INFO_COMPLETE') {
-        setStep(2) // Start at professional info (step 2)
-      } else if (onboardingStep === 'AVAILABILITY_COMPLETE') {
-        setStep(3) // Start at availability (step 3)
-      } else {
-        setStep(1) // Default: Start at personal info (step 1 in onboarding flow)
-      }
+    // Redirect if not authenticated
+    if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
+      router.push('/auth')
+      return
     }
 
-    initializeAuth()
-  }, [doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep, router, tokenFromUrl, setAuth])
+    // Determine starting step based on onboarding step from API
+    const onboardingStep = doctorAuth.onboardingStep
+    if (onboardingStep === 'COMPLETE') {
+      router.push('/dashboard')
+      return
+    } else if (onboardingStep === 'PERSONAL_INFO_COMPLETE') {
+      // PERSONAL_INFO_COMPLETE means email is verified and ready to enter personal info
+      setStep(1) // Start at personal info (step 1)
+    } else if (onboardingStep === 'PROFESSIONAL_INFO_COMPLETE') {
+      setStep(2) // Start at professional info (step 2)
+    } else if (onboardingStep === 'AVAILABILITY_COMPLETE') {
+      setStep(3) // Start at availability (step 3)
+    } else {
+      setStep(1) // Default: Start at personal info (step 1 in onboarding flow)
+    }
+  }, [doctorAuth, router, isHydrated])
 
   const validateStep = (stepNum) => {
     const newErrors = {}
@@ -290,6 +279,17 @@ export default function OnboardingPage() {
     if (errors.availableDays) {
       setErrors((prev) => ({ ...prev, availableDays: null }))
     }
+  }
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

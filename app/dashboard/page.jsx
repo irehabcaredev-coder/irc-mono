@@ -8,6 +8,7 @@ import { fetchDoctorProfile } from '@/lib/doctorApi'
 import { transformApiProfileToUI } from '@/lib/dataTransformers'
 // import { fetchLeadEvents } from '@/lib/doctorApi' // TODO: Uncomment when API endpoint is available
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
+import FeedbackButton from '@/components/doctor/FeedbackButton'
 import { Eye, Heart, MessageCircle, Phone, TrendingUp } from 'lucide-react'
 
 export default function DashboardOverview() {
@@ -148,6 +149,7 @@ export default function DashboardOverview() {
         isOpen={sidebarOpen} 
         onClose={() => setSidebarOpen(false)} 
       />
+      <FeedbackButton />
       <div className="lg:ml-64 min-h-screen">
         <div className="p-4 sm:p-6 lg:p-8 pt-4 sm:pt-6 lg:pt-8">
           <div className="mb-6 sm:mb-8">

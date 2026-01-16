@@ -186,13 +186,11 @@ export default function AuthPage() {
     }
   }
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setError('')
-    setLoading(true)
-    // TODO: Google sign-in endpoint not documented in apis.md
-    // For now, show error message
-    setError('Google sign-in is not yet available. Please use email and password to create an account.')
-    setLoading(false)
+    // Redirect to backend Google OAuth endpoint using NEXT_PUBLIC_BASE_ENDPOINT
+    const baseEndpoint = (process.env.NEXT_PUBLIC_BASE_ENDPOINT || 'http://localhost:3000').replace(/\/$/, '')
+    window.location.href = `${baseEndpoint}/auth/google/doctor`
   }
 
   return (
