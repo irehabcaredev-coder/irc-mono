@@ -82,7 +82,7 @@ function OnboardingContent() {
   const [practiceData, setPracticeData] = useState(doctorProfile.practice || {
     address: '',
     city: '',
-    locality: '',
+    state: '',
     availableDays: [],
     timings: {
       from: '',
@@ -225,8 +225,8 @@ function OnboardingContent() {
       if (!practiceData?.city?.trim() || practiceData.city.trim().length < 2) {
         newErrors.city = 'City is required'
       }
-      if (!practiceData?.locality?.trim() || practiceData.locality.trim().length < 2) {
-        newErrors.locality = 'Locality is required'
+      if (!practiceData?.state?.trim() || practiceData.state.trim().length < 2) {
+        newErrors.state = 'State is required'
       }
       if (!practiceData?.availableDays || practiceData.availableDays.length === 0) {
         newErrors.availableDays = 'Please select at least one day'
@@ -618,15 +618,21 @@ function OnboardingContent() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Locality
+                      State *
                     </label>
                     <input
                       type="text"
-                      value={practiceData?.locality || ''}
-                      onChange={(e) => setPracticeData((prev) => ({ ...prev, locality: e.target.value }))}
+                      value={practiceData?.state || ''}
+                      onChange={(e) => {
+                        setPracticeData((prev) => ({ ...prev, state: e.target.value }))
+                        if (errors.state) setErrors((prev) => ({ ...prev, state: null }))
+                      }}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                      placeholder="Andheri West"
+                      placeholder="Maharashtra"
                     />
+                    {errors.state && (
+                      <p className="mt-1 text-sm text-accent-red">{errors.state}</p>
+                    )}
                   </div>
                 </div>
 
