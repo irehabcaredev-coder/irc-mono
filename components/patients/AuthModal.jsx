@@ -34,6 +34,7 @@ export default function AuthModal() {
   const [gender, setGender] = useState('')
   const [phone, setPhone] = useState('')
   const [city, setCity] = useState('')
+  const [state, setState] = useState('')
   const [issues, setIssues] = useState('')
   const [ageError, setAgeError] = useState('')
   const [phoneError, setPhoneError] = useState('')
@@ -235,6 +236,7 @@ export default function AuthModal() {
     setGender('')
     setPhone('')
     setCity('')
+    setState('')
     setIssues('')
     setOtpSent(false)
     setPatientId(null)
@@ -272,6 +274,8 @@ export default function AuthModal() {
         gender: mapGenderToAPI(gender),
         age: parseInt(age),
         city,
+        state: state.trim(),
+        issues: issues ? [issues] : [],
       })
 
       if (result.success && result.data) {
@@ -284,6 +288,7 @@ export default function AuthModal() {
           gender,
           phone: formattedPhone,
           city,
+          state,
         }
         handleAuthSuccess(patientEmail, profile)
       }
@@ -685,6 +690,18 @@ export default function AuthModal() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  State
+                </label>
+                <input
+                  type="text"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="Enter your state"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
