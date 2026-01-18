@@ -9,7 +9,8 @@ import { transformApiProfileToUI } from '@/lib/dataTransformers'
 // import { fetchLeadEvents } from '@/lib/doctorApi' // TODO: Uncomment when API endpoint is available
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
 import FeedbackButton from '@/components/doctor/FeedbackButton'
-import { Eye, Heart, MessageCircle, Phone, TrendingUp } from 'lucide-react'
+import { Eye, Heart, MessageCircle, Phone, TrendingUp, Calendar } from 'lucide-react'
+import ScheduleMeetingModal from '@/components/doctor/ScheduleMeetingModal'
 
 function DashboardContent() {
   const router = useRouter()
@@ -22,6 +23,10 @@ function DashboardContent() {
   const setOnboarded = useDoctorStore((state) => state.setOnboarded)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
+  
+  // Meeting Modal State
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState({ id: null, name: '' })
 
   // JWT Parser (Robust for base64url)
   const parseJwt = (token) => {
@@ -300,7 +305,23 @@ function DashboardContent() {
                           </div>
                         </div>
                       </div>
-                      <div className="text-xs sm:text-sm text-gray-500 sm:ml-4">{timeAgo}</div>
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:ml-4">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setSelectedPatient({
+                              id: event.patientId, // Ensure event has patientId
+                              name: event.patientName || 'Patient'
+                            })
+                            setMeetingModalOpen(true)
+                          }}
+                           className="flex items-center space-x-1 px-3 py-1 bg-primary-blue/10 hover:bg-primary-blue/20 text-primary-blue rounded-md text-xs font-medium transition-colors"
+                        >
+                           <Calendar className="w-3 h-3" />
+                           <span>Schedule</span>
+                        </button>
+                        <div className="text-xs sm:text-sm text-gray-500">{timeAgo}</div>
+                      </div>
                     </div>
                   )
                 })}
@@ -329,6 +350,12 @@ function DashboardContent() {
           </div>
         </div>
       </div>
+      <ScheduleMeetingModal
+       isOpen={meetingModalOpen}
+       onClose={() => setMeetingModalOpen(false)}
+       patientId={selectedPatient.id}
+       patientName={selectedPatient.name}
+      />
     </div>
   )
 }
