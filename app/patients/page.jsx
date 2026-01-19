@@ -73,7 +73,16 @@ export default function PatientsPage() {
 
         if ((isNewUser || isReturningIncompleteUser) && pId) {
              console.log('Google Auth: Incomplete User', { isNewUser, isReturningIncompleteUser, pId })
-             // Case 1 & 2: Incomplete profile - Open Modal at Step 3 (Details)
+             
+             // Mark as authenticated first so they are "logged in"
+             setAuthSuccess(decoded.email, {
+                patientId: pId,
+                name: decoded.name,
+                email: decoded.email,
+                onboardingStep: decoded.onboardingStep || 'personal_info'
+             })
+
+             // Then open modal to capture missing details (Step 3)
              openAuthModal('register')
              setTempPatientId(pId)
              setAuthStep(3)
