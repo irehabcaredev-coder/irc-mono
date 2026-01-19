@@ -72,12 +72,13 @@ export default function PatientsPage() {
         const isReturningIncompleteUser = searchParams.get('isReturningIncompleteUser') === 'true'
 
         if ((isNewUser || isReturningIncompleteUser) && pId) {
+             console.log('Google Auth: Incomplete User', { isNewUser, isReturningIncompleteUser, pId })
              // Case 1 & 2: Incomplete profile - Open Modal at Step 3 (Details)
-             // We must set tempPatientId so the modal knows who to update
              openAuthModal('register')
              setTempPatientId(pId)
              setAuthStep(3)
         } else if (pId) {
+            console.log('Google Auth: Complete User', { pId })
             // Case 3: Fully onboarded - Just login
             setAuthSuccess(decoded.email, {
                 patientId: pId,
@@ -88,7 +89,10 @@ export default function PatientsPage() {
         }
         
         // Clear token from URL to clean up
-        router.replace('/patients')
+        // Use timeout to ensure state updates propagate
+        setTimeout(() => {
+             router.replace('/patients')
+        }, 500)
       }
     }
   }, [isHydrated, tokenFromUrl, searchParams, setAuthSuccess, router, openAuthModal, setAuthStep, setTempPatientId])

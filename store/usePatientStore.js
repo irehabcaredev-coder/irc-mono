@@ -219,6 +219,9 @@ export const usePatientStore = create(
         savedDoctorIds: state.savedDoctorIds,
         viewedDoctors: state.viewedDoctors,
         tempPatientId: state.tempPatientId,
+        authModalOpen: state.authModalOpen,
+        authMode: state.authMode,
+        authStep: state.authStep,
       }),
     }
   )
