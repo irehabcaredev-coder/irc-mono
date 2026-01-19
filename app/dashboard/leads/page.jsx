@@ -31,11 +31,21 @@ export default function LeadsPage() {
     }
   }, [doctorAuth, router, isHydrated])
 
-  const { data: leadEvents = [], isLoading } = useQuery({
+  const { data: apiLeadEvents = [], isLoading } = useQuery({
     queryKey: ['leadEvents', doctorAuth.doctorId],
     queryFn: () => fetchLeadEvents(doctorAuth.doctorId),
     enabled: !!doctorAuth.doctorId,
   })
+
+    // Transform API data to UI format
+  const leadEvents = apiLeadEvents.map(event => ({
+    eventId: event.id,
+    type: event.type || 'Profile View', // Default to 'Profile View' if type is missing
+    patientId: event.patientId,
+    patientName: event.patient?.name,
+    patientCity: event.patient?.city,
+    createdAt: event.createdAt || event.viewedAt // Use createdAt or fallback to viewedAt
+  }))
 
   const getEventIcon = (type) => {
     switch (type) {

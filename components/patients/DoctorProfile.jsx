@@ -13,7 +13,7 @@ export default function DoctorProfile() {
 
   const { data: apiDoctor, isLoading } = useQuery({
     queryKey: ['doctor', selectedDoctorId],
-    queryFn: () => fetchDoctorProfile(selectedDoctorId),
+    queryFn: () => fetchDoctorProfile(selectedDoctorId, { usePatientToken: true }),
     enabled: !!selectedDoctorId && profileDrawerOpen,
   })
 

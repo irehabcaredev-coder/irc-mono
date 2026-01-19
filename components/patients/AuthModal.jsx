@@ -24,6 +24,8 @@ export default function AuthModal() {
     setAuthMode,
     setAuthSuccess,
     clearPendingAction,
+    tempPatientId,
+    setTempPatientId,
   } = usePatientStore()
 
   const [email, setEmail] = useState('')
@@ -47,6 +49,13 @@ export default function AuthModal() {
   const [patientId, setPatientId] = useState(null)
   const [mockOtp, setMockOtp] = useState(null) // For dev mode
 
+  // Restore patientId from store if available (for page refreshes during signup)
+  useEffect(() => {
+    if (!patientId && tempPatientId) {
+      setPatientId(tempPatientId)
+    }
+  }, [tempPatientId, patientId])
+
   useEffect(() => {
     if (resendTimer > 0) {
       const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000)
@@ -58,7 +67,7 @@ export default function AuthModal() {
   // This hook must be called before any early returns to follow Rules of Hooks
   const { data: doctorData } = useQuery({
     queryKey: ['doctor', pendingAction?.doctorId],
-    queryFn: () => fetchDoctorProfile(pendingAction.doctorId),
+    queryFn: () => fetchDoctorProfile(pendingAction.doctorId, { usePatientToken: true }),
     enabled: !!pendingAction?.doctorId,
   })
 
@@ -89,7 +98,12 @@ export default function AuthModal() {
         // Registration: Create account and send OTP
         const result = await createPatientAccount(email, password)
         if (result.success && result.data) {
-          setPatientId(result.data.patientId)
+          const pid = result.data.patientId
+          setPatientId(pid)
+          setTempPatientId(pid) // Persist in store
+          if (typeof window !== 'undefined' && pid) {
+            localStorage.setItem('patient_id', pid)
+          }
           if (result.data.mockOtp) {
             setMockOtp(result.data.mockOtp)
           }
@@ -130,7 +144,14 @@ export default function AuthModal() {
         // Registration: Verify OTP
         const result = await verifyPatientOTP(email, otp)
         if (result.success && result.data) {
-          setPatientId(result.data.patientId)
+          const data = result.data
+          const pId = data.patientId || data.id || data.userId
+          setPatientId(pId)
+          setTempPatientId(pId) // Persist in store
+          if (typeof window !== 'undefined' && pId) {
+            localStorage.setItem('patient_id', pId)
+          }
+          console.log('OTP verified, patientId:', pId)
           // Token is already stored in localStorage by verifyPatientOTP
           setAuthStep(3) // Move to personal info step
         }
@@ -167,7 +188,12 @@ export default function AuthModal() {
     try {
       const result = await loginPatient(email, password)
       if (result.success && result.data) {
-        const { patientId, token, email: patientEmail, name, onboardingStep } = result.data
+        const data = result.data
+        const patientId = data.patientId || data.id || data.userId
+        const { token, email: patientEmail, name, onboardingStep } = data
+        
+        console.log('Login success, patientId identified:', patientId, 'from data:', data)
+
         // Token is already stored in localStorage by loginPatient
         // Update store with patient data
         const profile = { name, email: patientEmail, patientId, onboardingStep }
@@ -279,7 +305,12 @@ export default function AuthModal() {
       })
 
       if (result.success && result.data) {
-        const { patientId: finalPatientId, email: patientEmail, name: patientName } = result.data
+        const data = result.data
+        const finalPatientId = data.patientId || data.id || data.userId || patientId // Fallback to state patientId
+        const { email: patientEmail, name: patientName } = data
+        
+        console.log('Registration complete, finalPatientId:', finalPatientId)
+        
         const profile = {
           patientId: finalPatientId,
           name: patientName,

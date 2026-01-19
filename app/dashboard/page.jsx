@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { fetchDoctorProfile } from '@/lib/doctorApi'
 import { transformApiProfileToUI } from '@/lib/dataTransformers'
-// import { fetchLeadEvents } from '@/lib/doctorApi' // TODO: Uncomment when API endpoint is available
+import { fetchLeadEvents } from '@/lib/doctorApi'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
 import FeedbackButton from '@/components/doctor/FeedbackButton'
 import { Eye, Heart, MessageCircle, Phone, TrendingUp, Calendar } from 'lucide-react'
@@ -106,13 +106,22 @@ function DashboardContent() {
     handleAuth()
   }, [isHydrated, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.onboardingStep, router, setAuth])
 
-  // TODO: Fetch lead events from API when endpoint is available
-  // const { data: leadEvents = [] } = useQuery({
-  //   queryKey: ['leadEvents', doctorAuth.doctorId],
-  //   queryFn: () => fetchLeadEvents(doctorAuth.doctorId),
-  //   enabled: !!doctorAuth.doctorId,
-  // })
-  const leadEvents = [] // Placeholder until API is available
+  // Fetch lead events from API
+  const { data: apiLeadEvents = [] } = useQuery({
+    queryKey: ['leadEvents', doctorAuth.doctorId],
+    queryFn: () => fetchLeadEvents(doctorAuth.doctorId),
+    enabled: !!doctorAuth.doctorId,
+  })
+
+  // Transform API data to UI format
+  const leadEvents = apiLeadEvents.map(event => ({
+    eventId: event.id,
+    type: event.type || 'Profile View', // Default to 'Profile View' if type is missing
+    patientId: event.patientId,
+    patientName: event.patient?.name,
+    patientCity: event.patient?.city,
+    createdAt: event.createdAt || event.viewedAt // Use createdAt or fallback to viewedAt
+  }))
 
   const recentEvents = leadEvents.slice(0, 5)
 

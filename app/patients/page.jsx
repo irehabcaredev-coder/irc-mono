@@ -12,9 +12,17 @@ import { fetchAllDoctors } from '@/lib/doctorApi'
 import { transformApiDoctorToCard } from '@/lib/dataTransformers'
 import { BRAND_NAME } from '@/lib/brand'
 
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
+
 const languages = ['English', 'Hindi', 'Assamese', 'Bengali', 'Kannada', 'Marathi', 'Tamil', 'Telugu', 'Gujarati']
 
 export default function PatientsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const tokenFromUrl = searchParams.get('token')
+  const [isHydrated, setIsHydrated] = useState(false)
+
   const activeTab = usePatientStore((state) => state.activeTab)
   const searchQuery = usePatientStore((state) => state.searchQuery)
   const selectedConsultModes = usePatientStore((state) => state.selectedConsultModes)
@@ -23,6 +31,49 @@ export default function PatientsPage() {
   const setSearchQuery = usePatientStore((state) => state.setSearchQuery)
   const toggleConsultMode = usePatientStore((state) => state.toggleConsultMode)
   const setSelectedLanguage = usePatientStore((state) => state.setSelectedLanguage)
+  const setAuthSuccess = usePatientStore((state) => state.setAuthSuccess)
+  const isAuthed = usePatientStore((state) => state.isAuthed)
+
+  // Wait for hydration
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  // JWT Parser
+  const parseJwt = (token) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      console.error("JWT Parse Error:", e);
+      return null;
+    }
+  };
+
+  // Handle Auth
+  useEffect(() => {
+    if (!isHydrated) return
+
+    if (tokenFromUrl) {
+      localStorage.setItem('patient_token', tokenFromUrl)
+      
+      const decoded = parseJwt(tokenFromUrl)
+      if (decoded && decoded.email && decoded.patientId) {
+        setAuthSuccess(decoded.email, {
+             patientId: decoded.patientId,
+             name: decoded.name,
+             email: decoded.email,
+             onboardingStep: decoded.onboardingStep
+        })
+        // Clear token from URL to clean up (optional, but good UX)
+        router.replace('/patients')
+      }
+    }
+  }, [isHydrated, tokenFromUrl, setAuthSuccess, router])
 
   // Fetch all doctors from API
   const { data: apiDoctorsResponse, isLoading: isLoadingDoctors } = useQuery({
