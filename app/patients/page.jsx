@@ -70,9 +70,17 @@ export default function PatientsPage() {
         // Check user status flags from URL
         const isNewUser = searchParams.get('isNewUser') === 'true'
         const isReturningIncompleteUser = searchParams.get('isReturningIncompleteUser') === 'true'
+        
+        console.log('Google Auth Debug:', { 
+            isNewUser, 
+            isReturningIncompleteUser, 
+            pId, 
+            email: decoded.email,
+            decoded 
+        })
 
         if ((isNewUser || isReturningIncompleteUser) && pId) {
-             console.log('Google Auth: Incomplete User', { isNewUser, isReturningIncompleteUser, pId })
+             console.log('Google Auth: Incomplete User Flow Triggered')
              
              // Mark as authenticated first so they are "logged in"
              setAuthSuccess(decoded.email, {
@@ -82,12 +90,12 @@ export default function PatientsPage() {
                 onboardingStep: decoded.onboardingStep || 'personal_info'
              })
 
-             // Then open modal to capture missing details (Step 3)
+             // Then open modal
              openAuthModal('register')
              setTempPatientId(pId)
              setAuthStep(3)
         } else if (pId) {
-            console.log('Google Auth: Complete User', { pId })
+            console.log('Google Auth: Complete User Flow Triggered - Calling setAuthSuccess')
             // Case 3: Fully onboarded - Just login
             setAuthSuccess(decoded.email, {
                 patientId: pId,
@@ -95,6 +103,9 @@ export default function PatientsPage() {
                 email: decoded.email,
                 onboardingStep: decoded.onboardingStep
             })
+            console.log('Google Auth: setAuthSuccess called')
+        } else {
+            console.error('Google Auth: No pId found in token', decoded)
         }
         
         // Clear token from URL to clean up
