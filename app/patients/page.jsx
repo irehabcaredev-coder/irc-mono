@@ -7,7 +7,6 @@ import DoctorCard from '@/components/patients/DoctorCard'
 import AuthModal from '@/components/patients/AuthModal'
 import DoctorProfile from '@/components/patients/DoctorProfile'
 import { usePatientStore } from '@/store/usePatientStore'
-import { filterDoctors } from '@/lib/filterDoctors'
 import { fetchAllDoctors } from '@/lib/doctorApi'
 import { transformApiDoctorToCard } from '@/lib/dataTransformers'
 import { BRAND_NAME } from '@/lib/brand'
@@ -94,17 +93,40 @@ export default function PatientsPage() {
     }
   }, [isHydrated, tokenFromUrl, searchParams, setAuthSuccess, router, openAuthModal, setAuthStep, setTempPatientId])
 
-  // Fetch all doctors from API with pagination
+  // Map activeTab to specialty or saved filter
+  const getSpecialtyFromTab = (tab) => {
+      switch(tab) {
+          case 'AUDIOLOGIST': return 'Audiologist'
+          case 'SPEECH_THERAPIST': return 'Speech Therapist'
+          case 'CHILD_SPEECH': return 'Child Speech' // Adjust if backend expects different value
+          case 'ADULT_SPEECH': return 'Adult Speech' // Adjust if backend expects different value
+          case 'HEARING_TEST': return 'Hearing Test' 
+          default: return undefined
+      }
+  }
+
+  // Fetch all doctors from API with pagination AND filters
   const {
     data: infiniteData,
-    isLoading: isLoadingDoctors,
+    isLoading,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage
   } = useInfiniteQuery({
-    queryKey: ['allDoctorsInfinite'],
+    queryKey: ['allDoctorsInfinite', activeTab, searchQuery, selectedConsultModes, selectedLanguage, savedDoctorIds],
     queryFn: async ({ pageParam = 1 }) => {
-      const response = await fetchAllDoctors({ page: pageParam, limit: 10 })
+      const specialty = getSpecialtyFromTab(activeTab)
+      const saved = activeTab === 'SAVED_DOCTORS' ? 'true' : undefined
+      
+      const response = await fetchAllDoctors({ 
+          page: pageParam, 
+          limit: 10,
+          search: searchQuery,
+          specialty,
+          mode: selectedConsultModes.length > 0 ? selectedConsultModes.join(',') : undefined,
+          lang: selectedLanguage || undefined,
+          saved
+      })
       
       // Normalize response structure
       let docs = []
@@ -132,27 +154,13 @@ export default function PatientsPage() {
     }
   })
 
-  // Flatten the doctors from all pages
+  // Flatten the doctors from all pages (These are ALREADY filtered by backend)
   const allDoctorsRaw = infiniteData?.pages.flatMap(page => page.doctors) || []
 
   // Transform API doctors to card format
-  const allDoctors = allDoctorsRaw.map(transformApiDoctorToCard).filter(Boolean)
+  const doctors = allDoctorsRaw.map(transformApiDoctorToCard).filter(Boolean)
 
-  // Filter doctors based on user selections
-  const { data: doctors = [], isLoading: isLoadingFiltered } = useQuery({
-    queryKey: ['filteredDoctors', allDoctors, activeTab, searchQuery, selectedConsultModes, selectedLanguage, savedDoctorIds],
-    queryFn: () =>
-      filterDoctors(allDoctors, {
-        activeTab,
-        searchQuery,
-        selectedConsultModes,
-        selectedLanguage,
-        savedDoctorIds,
-      }),
-    enabled: allDoctors.length > 0 || isLoadingDoctors,
-  })
 
-  const isLoading = isLoadingDoctors || isLoadingFiltered
 
   return (
     <div className="min-h-screen bg-paper">
@@ -295,7 +303,7 @@ export default function PatientsPage() {
   )
 }
 
-}
+
 
 function InfiniteScrollTrigger({ hasNextPage, fetchNextPage, isFetchingNextPage }) {
   const sentinelRef = useRef(null)
