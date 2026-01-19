@@ -33,6 +33,9 @@ export default function PatientsPage() {
   const setSelectedLanguage = usePatientStore((state) => state.setSelectedLanguage)
   const setAuthSuccess = usePatientStore((state) => state.setAuthSuccess)
   const isAuthed = usePatientStore((state) => state.isAuthed)
+  const openAuthModal = usePatientStore((state) => state.openAuthModal)
+  const setAuthStep = usePatientStore((state) => state.setAuthStep)
+  const setTempPatientId = usePatientStore((state) => state.setTempPatientId)
 
   // Wait for hydration
   useEffect(() => {
@@ -62,18 +65,34 @@ export default function PatientsPage() {
       localStorage.setItem('patient_token', tokenFromUrl)
       
       const decoded = parseJwt(tokenFromUrl)
-      if (decoded && decoded.email && decoded.patientId) {
-        setAuthSuccess(decoded.email, {
-             patientId: decoded.patientId,
-             name: decoded.name,
-             email: decoded.email,
-             onboardingStep: decoded.onboardingStep
-        })
-        // Clear token from URL to clean up (optional, but good UX)
+      if (decoded && decoded.email) {
+        const pId = decoded.patientId || decoded.id
+        
+        // Check user status flags from URL
+        const isNewUser = searchParams.get('isNewUser') === 'true'
+        const isReturningIncompleteUser = searchParams.get('isReturningIncompleteUser') === 'true'
+
+        if ((isNewUser || isReturningIncompleteUser) && pId) {
+             // Case 1 & 2: Incomplete profile - Open Modal at Step 3 (Details)
+             // We must set tempPatientId so the modal knows who to update
+             openAuthModal('register')
+             setTempPatientId(pId)
+             setAuthStep(3)
+        } else if (pId) {
+            // Case 3: Fully onboarded - Just login
+            setAuthSuccess(decoded.email, {
+                patientId: pId,
+                name: decoded.name,
+                email: decoded.email,
+                onboardingStep: decoded.onboardingStep
+            })
+        }
+        
+        // Clear token from URL to clean up
         router.replace('/patients')
       }
     }
-  }, [isHydrated, tokenFromUrl, setAuthSuccess, router])
+  }, [isHydrated, tokenFromUrl, searchParams, setAuthSuccess, router, openAuthModal, setAuthStep, setTempPatientId])
 
   // Fetch all doctors from API
   const { data: apiDoctorsResponse, isLoading: isLoadingDoctors } = useQuery({

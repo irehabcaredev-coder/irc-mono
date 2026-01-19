@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, Phone, MessageCircle } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
@@ -17,9 +17,16 @@ export default function DoctorProfile() {
     enabled: !!selectedDoctorId && profileDrawerOpen,
   })
 
+  const lastViewedRef = useRef(null)
+
   useEffect(() => {
     if (profileDrawerOpen && selectedDoctorId && isAuthed) {
-      addViewedDoctor(selectedDoctorId)
+      if (lastViewedRef.current !== selectedDoctorId) {
+          addViewedDoctor(selectedDoctorId)
+          lastViewedRef.current = selectedDoctorId
+      }
+    } else {
+        lastViewedRef.current = null
     }
   }, [profileDrawerOpen, selectedDoctorId, isAuthed, addViewedDoctor])
 

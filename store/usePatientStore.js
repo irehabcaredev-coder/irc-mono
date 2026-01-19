@@ -107,7 +107,7 @@ export const usePatientStore = create(
           if (type === 'VIEW_PROFILE') eventType = 'Profile View'
           if (type === 'SAVE_DOCTOR') eventType = 'Saved'
           
-          if (eventType !== 'Saved') { // Saved is handled by toggleSavedDoctor api call separately
+          if (eventType !== 'Saved' && eventType !== 'Profile View') { // Saved is handled by toggleSavedDoctor, Profile View by addViewedDoctor
               await trackLeadEvent(doctorId, eventType, patientId)
           }
         } catch (error) {
