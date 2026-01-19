@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { fetchLeadEvents } from '@/lib/doctorApi'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
@@ -31,11 +31,43 @@ export default function LeadsPage() {
     }
   }, [doctorAuth, router, isHydrated])
 
-  const { data: apiLeadEvents = [], isLoading } = useQuery({
-    queryKey: ['leadEvents', doctorAuth.doctorId],
-    queryFn: () => fetchLeadEvents(doctorAuth.doctorId),
+  const { 
+    data: infiniteData, 
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
+    queryKey: ['leadEventsInfinite', doctorAuth.doctorId],
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await fetchLeadEvents(doctorAuth.doctorId, { page: pageParam, limit: 10 })
+      
+      // Normalize response
+      let events = []
+      let total = 0
+      
+      if (Array.isArray(response)) {
+          events = response
+      } else if (response.data && Array.isArray(response.data)) {
+          events = response.data
+          total = response.count || 0
+      } else if (response.data) {
+           events = Array.isArray(response.data) ? response.data : []
+      }
+      
+      return { events, total }
+    },
+    getNextPageParam: (lastPage, allPages) => {
+        const loadedCount = allPages.flatMap(p => p.events).length
+        if (lastPage.total && loadedCount < lastPage.total) {
+            return allPages.length + 1
+        }
+        return lastPage.events.length === 10 ? allPages.length + 1 : undefined
+    },
     enabled: !!doctorAuth.doctorId,
   })
+
+  const apiLeadEvents = infiniteData?.pages.flatMap(page => page.events) || []
 
     // Transform API data to UI format
   const leadEvents = apiLeadEvents.map(event => ({
@@ -115,9 +147,10 @@ export default function LeadsPage() {
                 <p className="mt-4 text-sm sm:text-base text-gray-600">Loading leads...</p>
               </div>
             ) : leadEvents.length > 0 ? (
-              <div className="divide-y divide-gray-200">
-                {leadEvents.map((event) => {
-                  const Icon = getEventIcon(event.type)
+              <>
+                <div className="divide-y divide-gray-200">
+                  {leadEvents.map((event) => {
+                    const Icon = getEventIcon(event.type)
                   const colorClass = getEventColor(event.type)
 
                   return (
@@ -171,6 +204,15 @@ export default function LeadsPage() {
                   )
                 })}
               </div>
+              
+                  <div className="p-4 text-center border-t border-gray-200">
+                    <InfiniteScrollTrigger 
+                        hasNextPage={hasNextPage}
+                        fetchNextPage={fetchNextPage}
+                        isFetchingNextPage={isFetchingNextPage}
+                    />
+                  </div>
+              </>
             ) : (
               <div className="p-8 sm:p-12 text-center">
                 <Eye className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-gray-400 mb-4" />
@@ -202,3 +244,39 @@ function getTimeAgo(date) {
   return `${days}d ago`
 }
 
+
+function InfiniteScrollTrigger({ hasNextPage, fetchNextPage, isFetchingNextPage }) {
+  const sentinelRef = useRef(null)
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel || !hasNextPage) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    )
+
+    observer.observe(sentinel)
+
+    return () => {
+      if (sentinel) observer.unobserve(sentinel)
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  if (!hasNextPage) return null
+
+  return (
+    <div ref={sentinelRef} className="py-2 text-center w-full">
+      {isFetchingNextPage ? (
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-primary-blue"></div>
+      ) : (
+        <div className="h-4" /> 
+      )}
+    </div>
+  )
+}

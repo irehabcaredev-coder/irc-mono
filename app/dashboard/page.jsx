@@ -107,11 +107,17 @@ function DashboardContent() {
   }, [isHydrated, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.onboardingStep, router, setAuth])
 
   // Fetch lead events from API
-  const { data: apiLeadEvents = [] } = useQuery({
+  // Fetch lead events from API (Only need 5 for overview)
+  const { data: apiLeadEventsData = [] } = useQuery({
     queryKey: ['leadEvents', doctorAuth.doctorId],
-    queryFn: () => fetchLeadEvents(doctorAuth.doctorId),
+    queryFn: () => fetchLeadEvents(doctorAuth.doctorId, { limit: 5 }),
     enabled: !!doctorAuth.doctorId,
   })
+
+  // Normalize data (handle both array and paginated object)
+  const apiLeadEvents = Array.isArray(apiLeadEventsData) 
+    ? apiLeadEventsData 
+    : (apiLeadEventsData.leads || apiLeadEventsData.data || [])
 
   // Transform API data to UI format
   const leadEvents = apiLeadEvents.map(event => ({

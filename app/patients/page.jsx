@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import Header from '@/components/patients/Header'
 import Sidebar from '@/components/patients/Sidebar'
 import DoctorCard from '@/components/patients/DoctorCard'
@@ -13,7 +13,7 @@ import { transformApiDoctorToCard } from '@/lib/dataTransformers'
 import { BRAND_NAME } from '@/lib/brand'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 
 const languages = ['English', 'Hindi', 'Assamese', 'Bengali', 'Kannada', 'Marathi', 'Tamil', 'Telugu', 'Gujarati']
 
@@ -94,17 +94,49 @@ export default function PatientsPage() {
     }
   }, [isHydrated, tokenFromUrl, searchParams, setAuthSuccess, router, openAuthModal, setAuthStep, setTempPatientId])
 
-  // Fetch all doctors from API
-  const { data: apiDoctorsResponse, isLoading: isLoadingDoctors } = useQuery({
-    queryKey: ['allDoctors'],
-    queryFn: async () => {
-      const response = await fetchAllDoctors()
-      return response.data || []
+  // Fetch all doctors from API with pagination
+  const {
+    data: infiniteData,
+    isLoading: isLoadingDoctors,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
+    queryKey: ['allDoctorsInfinite'],
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await fetchAllDoctors({ page: pageParam, limit: 10 })
+      
+      // Normalize response structure
+      let docs = []
+      let total = 0
+      
+      if (Array.isArray(response)) {
+          docs = response
+      } else if (response.data && Array.isArray(response.data)) {
+          docs = response.data
+          total = response.count || 0
+      } else if (response.data) {
+           // Maybe response.data IS the array (if apiGet returns body directly)
+           docs = Array.isArray(response.data) ? response.data : []
+      }
+
+      return { doctors: docs, total }
     },
+    getNextPageParam: (lastPage, allPages) => {
+        const loadedCount = allPages.flatMap(p => p.doctors).length
+        if (lastPage.total && loadedCount < lastPage.total) {
+            return allPages.length + 1
+        }
+        // Fallback: if we got a full page, try next.
+        return lastPage.doctors.length === 10 ? allPages.length + 1 : undefined
+    }
   })
 
+  // Flatten the doctors from all pages
+  const allDoctorsRaw = infiniteData?.pages.flatMap(page => page.doctors) || []
+
   // Transform API doctors to card format
-  const allDoctors = (apiDoctorsResponse || []).map(transformApiDoctorToCard).filter(Boolean)
+  const allDoctors = allDoctorsRaw.map(transformApiDoctorToCard).filter(Boolean)
 
   // Filter doctors based on user selections
   const { data: doctors = [], isLoading: isLoadingFiltered } = useQuery({
@@ -218,15 +250,29 @@ export default function PatientsPage() {
                   {doctors.map((doctor) => (
                     <DoctorCard key={doctor.id} doctor={doctor} />
                   ))}
+                  
+                  {/* Infinite Scroll Trigger */}
+                  <InfiniteScrollTrigger 
+                     hasNextPage={hasNextPage && !searchQuery && selectedConsultModes.length === 0 && !selectedLanguage}
+                     fetchNextPage={fetchNextPage}
+                     isFetchingNextPage={isFetchingNextPage}
+                  />
                 </div>
               ) : (
                 <div className="text-center py-12">
                   <p className="text-gray-600">No doctors found matching your criteria.</p>
+                   {/* Allow loading more if we have nothing displayed but might have more on server? */}
+                   <InfiniteScrollTrigger 
+                     hasNextPage={hasNextPage && !searchQuery && selectedConsultModes.length === 0 && !selectedLanguage}
+                     fetchNextPage={fetchNextPage}
+                     isFetchingNextPage={isFetchingNextPage}
+                  />
                 </div>
+
+
               )}
             </div>
 
-            {/* How it Works Section */}
             <div className="mb-8 pt-6 border-t border-gray-200">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">How it works</h2>
               <ol className="space-y-3 list-decimal list-inside text-gray-700">
@@ -249,3 +295,40 @@ export default function PatientsPage() {
   )
 }
 
+}
+
+function InfiniteScrollTrigger({ hasNextPage, fetchNextPage, isFetchingNextPage }) {
+  const sentinelRef = useRef(null)
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel || !hasNextPage) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    )
+
+    observer.observe(sentinel)
+
+    return () => {
+      if (sentinel) observer.unobserve(sentinel)
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  if (!hasNextPage) return null
+
+  return (
+    <div ref={sentinelRef} className="py-8 text-center w-full">
+      {isFetchingNextPage ? (
+        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-primary-blue"></div>
+      ) : (
+        <div className="h-4" /> // Spacer for triggering
+      )}
+    </div>
+  )
+}
