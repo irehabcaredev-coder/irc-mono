@@ -16,7 +16,9 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 
 const languages = ['English', 'Hindi', 'Assamese', 'Bengali', 'Kannada', 'Marathi', 'Tamil', 'Telugu', 'Gujarati']
 
-export default function PatientsPage() {
+import { Suspense } from 'react'
+
+function PatientsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
@@ -327,7 +329,13 @@ export default function PatientsPage() {
   )
 }
 
-
+export default function PatientsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-paper flex items-center justify-center">Loading...</div>}>
+      <PatientsContent />
+    </Suspense>
+  )
+}
 
 function InfiniteScrollTrigger({ hasNextPage, fetchNextPage, isFetchingNextPage }) {
   const sentinelRef = useRef(null)
