@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, User, Users, Settings, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, User, Users, Settings, LogOut, Menu, X, Calendar } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { useRouter } from 'next/navigation'
 import BrandWordmark from '@/components/BrandWordmark'
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/profile', label: 'Profile', icon: User },
   { href: '/dashboard/leads', label: 'Leads', icon: Users },
+  { href: '/dashboard/appointments', label: 'Appointments', icon: Calendar },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
 

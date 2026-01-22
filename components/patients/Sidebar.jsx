@@ -9,6 +9,7 @@ const tabs = [
   { id: 'CHILD_SPEECH', label: 'Child Speech' },
   { id: 'ADULT_SPEECH', label: 'Adult Speech' },
   { id: 'HEARING_TEST', label: 'Hearing Test' },
+  { id: 'APPOINTMENTS', label: 'My Appointments' },
   { id: 'SAVED_DOCTORS', label: 'Saved Doctors' },
 ]
 

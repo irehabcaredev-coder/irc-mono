@@ -9,11 +9,16 @@ import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/Dashboar
 import FeedbackButton from '@/components/doctor/FeedbackButton'
 import { Eye, Heart, MessageCircle, Phone } from 'lucide-react'
 
+import ScheduleMeetingModal from '@/components/doctor/ScheduleMeetingModal'
+import { Video } from 'lucide-react'
+
 export default function LeadsPage() {
   const router = useRouter()
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState(null)
 
   // Wait for Zustand to hydrate from localStorage
   useEffect(() => {
@@ -113,6 +118,11 @@ export default function LeadsPage() {
     })
   }
 
+  const handleScheduleClick = (patientId, patientName) => {
+    setSelectedPatient({ id: patientId, name: patientName })
+    setScheduleModalOpen(true)
+  }
+
   if (!isHydrated) {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center">
@@ -191,13 +201,26 @@ export default function LeadsPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="text-left sm:text-right sm:ml-4">
-                          <p className="text-xs sm:text-sm font-medium text-gray-900">
-                            {formatDate(event.createdAt)}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {getTimeAgo(event.createdAt)}
-                          </p>
+                        <div className="flex flex-col sm:items-end gap-2">
+                            <div className="text-left sm:text-right">
+                              <p className="text-xs sm:text-sm font-medium text-gray-900">
+                                {formatDate(event.createdAt)}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {getTimeAgo(event.createdAt)}
+                              </p>
+                            </div>
+                            
+                            {/* Schedule Button - Only show if we have patient details */}
+                            {event.patientId && event.patientName && (
+                              <button
+                                onClick={() => handleScheduleClick(event.patientId, event.patientName)}
+                                className="inline-flex items-center px-3 py-1.5 border border-primary-blue text-primary-blue hover:bg-primary-blue hover:text-white rounded-md text-xs font-medium transition-colors"
+                              >
+                                <Video className="w-3 h-3 mr-1.5" />
+                                Schedule
+                              </button>
+                            )}
                         </div>
                       </div>
                     </div>
@@ -225,6 +248,16 @@ export default function LeadsPage() {
           </div>
         </div>
       </div>
+
+      <ScheduleMeetingModal 
+        isOpen={scheduleModalOpen}
+        onClose={() => {
+            setScheduleModalOpen(false)
+            setSelectedPatient(null)
+        }}
+        patientId={selectedPatient?.id}
+        patientName={selectedPatient?.name}
+      />
     </div>
   )
 }
