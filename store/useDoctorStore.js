@@ -39,6 +39,12 @@ export const useDoctorStore = create(
             to: '',
           },
         },
+        payment: {
+          consultationFee: 0,
+          bankAccountNumber: '',
+          bankIfsc: '',
+          bankBeneficiaryName: '',
+        },
       },
 
       // Actions
@@ -110,6 +116,14 @@ export const useDoctorStore = create(
           },
         })),
 
+      updatePaymentDetails: (payment) =>
+        set((state) => ({
+          doctorProfile: {
+            ...state.doctorProfile,
+            payment: { ...(state.doctorProfile.payment || {}), ...payment },
+          },
+        })),
+
       logout: () => {
         // Clear token from localStorage
         if (typeof window !== 'undefined') {
@@ -147,6 +161,12 @@ export const useDoctorStore = create(
                 from: '',
                 to: '',
               },
+            },
+            payment: {
+              consultationFee: 0,
+              bankAccountNumber: '',
+              bankIfsc: '',
+              bankBeneficiaryName: '',
             },
           },
         })
