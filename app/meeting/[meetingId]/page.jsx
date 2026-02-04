@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useDoctorStore } from '@/store/useDoctorStore';
 import { usePatientStore } from '@/store/usePatientStore';
@@ -21,6 +21,7 @@ const AgoraWrapper = dynamic(() => import('@/components/video/AgoraVideoCall'), 
 });
 
 export default function MeetingPage() {
+  const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const meetingId = params.meetingId;
@@ -92,6 +93,16 @@ export default function MeetingPage() {
     if (!guestName.trim()) return;
     setUid(guestName.trim());
     setIsJoinReady(true);
+  };
+
+  const handleLeave = () => {
+    if (isDoctorAuthed) {
+      router.push('/dashboard');
+    } else if (isPatientAuthed) {
+      router.push('/patients');
+    } else {
+      router.push('/');
+    }
   };
 
   if (!appId) {
@@ -240,6 +251,7 @@ export default function MeetingPage() {
         channelName={meetingId} 
         token={token || null} // Pass null if no token is used (forcing App ID only mode, usually for dev) 
         uid={uid} 
+        onLeave={handleLeave}
       />
     </div>
   );

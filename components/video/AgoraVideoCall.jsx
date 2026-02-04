@@ -17,7 +17,7 @@ import AgoraRTC, {
   RemoteUser,
 } from 'agora-rtc-react';
 
-export default function AgoraWrapper({ appId, channelName, token, uid }) {
+export default function AgoraWrapper({ appId, channelName, token, uid, onLeave }) {
   const client = useRTCClient(AgoraRTC.createClient({ codec: 'vp8', mode: 'rtc' }));
 
   if (!appId || !channelName) {
@@ -26,12 +26,12 @@ export default function AgoraWrapper({ appId, channelName, token, uid }) {
 
   return (
     <AgoraRTCProvider client={client}>
-      <VideoCall channelName={channelName} appId={appId} token={token} uid={uid} />
+      <VideoCall channelName={channelName} appId={appId} token={token} uid={uid} onLeave={onLeave} />
     </AgoraRTCProvider>
   );
 }
 
-function VideoCall({ appId, channelName, token, uid }) {
+function VideoCall({ appId, channelName, token, uid, onLeave }) {
   const { isLoading: isLoadingMic, localMicrophoneTrack } = useLocalMicrophoneTrack();
   const { isLoading: isLoadingCam, localCameraTrack } = useLocalCameraTrack();
   const remoteUsers = useRemoteUsers();
@@ -63,8 +63,11 @@ function VideoCall({ appId, channelName, token, uid }) {
   };
 
   const leaveCall = () => {
-      // In a real app this would cleanup and redirect
-      window.close(); // Or router.push('/')
+      if (onLeave) {
+          onLeave();
+      } else {
+          window.close();
+      }
   };
 
   const deviceLoading = isLoadingMic || isLoadingCam;
