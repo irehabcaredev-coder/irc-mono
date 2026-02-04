@@ -197,10 +197,21 @@ export default function AuthModal() {
         // Token is already stored in localStorage by loginPatient
         // Update store with patient data
         const profile = { name, email: patientEmail, patientId, onboardingStep }
-        setAuthSuccess(patientEmail, profile)
+        
+        if (onboardingStep && onboardingStep !== 'COMPLETE') {
+          // If profile is incomplete, set auth success but keep modal open at step 3
+          setAuthSuccess(patientEmail, profile)
+          setTimeout(() => {
+            openAuthModal('register')
+            setTempPatientId(patientId)
+            setAuthStep(3)
+          }, 100)
+        } else {
+          setAuthSuccess(patientEmail, profile)
+          replayPendingAction()
+        }
         setEmail('')
         setPassword('')
-        replayPendingAction()
       }
     } catch (error) {
       if (error instanceof ApiError) {

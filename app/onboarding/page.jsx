@@ -211,16 +211,15 @@ function OnboardingContent() {
       router.push('/dashboard')
       return
     } else if (currentStep === 'PERSONAL_INFO_COMPLETE') {
-      setStep(2) // Step 1 complete -> Start at Step 2 (Professional Info)
+      setStep(1)
     } else if (currentStep === 'PROFESSIONAL_INFO_COMPLETE') {
-      setStep(3) // Step 2 complete -> Start at Step 3 (Availability/Practice)
+      setStep(2)
     } else if (currentStep === 'AVAILABILITY_COMPLETE') {
-      setStep(4) // Step 3 complete -> Start at Step 4 (Payment Info)
+      setStep(3)
     } else if (currentStep === 'PAYMENT_INFO_COMPLETE') {
-      setOnboardingStep('COMPLETE')
-      router.push('/dashboard')
+      setStep(4)
     } else {
-      setStep(1) // Default: Start at Step 1 (Personal Info)
+      setStep(1) // Default
     }
     
   }, [isHydrated, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep, router, setAuth, setOnboardingStep, setOnboarded, updateBasicDetails, updateProfessionalDetails, updatePracticeDetails])

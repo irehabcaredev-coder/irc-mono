@@ -81,31 +81,34 @@ function PatientsContent() {
             decoded 
         })
 
-        if ((isNewUser || isReturningIncompleteUser) && pId) {
-             console.log('Google Auth: Incomplete User Flow Triggered')
+        const onboardingStep = decoded.onboardingStep
+        const isIncomplete = onboardingStep && onboardingStep !== 'COMPLETE'
+        
+        if ((isNewUser || isReturningIncompleteUser || isIncomplete) && pId) {
+             console.log('Google Auth: Incomplete User Flow Triggered', { onboardingStep })
              
-             // Mark as authenticated first so they are "logged in"
+             // Mark as authenticated first so profile is available
              setAuthSuccess(decoded.email, {
                 patientId: pId,
                 name: decoded.name,
                 email: decoded.email,
-                onboardingStep: decoded.onboardingStep || 'personal_info'
+                onboardingStep: onboardingStep || 'PERSONAL_INFO_COMPLETE'
              })
 
-             // Then open modal
-             openAuthModal('register')
-             setTempPatientId(pId)
-             setAuthStep(3)
+             // Ensure modal opens even if setAuthSuccess closed it
+             setTimeout(() => {
+                 openAuthModal('register')
+                 setTempPatientId(pId)
+                 setAuthStep(3)
+             }, 100)
         } else if (pId) {
-            console.log('Google Auth: Complete User Flow Triggered - Calling setAuthSuccess')
-            // Case 3: Fully onboarded - Just login
+            console.log('Google Auth: Complete User Flow Triggered')
             setAuthSuccess(decoded.email, {
                 patientId: pId,
                 name: decoded.name,
                 email: decoded.email,
-                onboardingStep: decoded.onboardingStep
+                onboardingStep: 'COMPLETE'
             })
-            console.log('Google Auth: setAuthSuccess called')
         } else {
             console.error('Google Auth: No pId found in token', decoded)
         }
