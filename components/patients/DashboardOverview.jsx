@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Video, MapPin, Calendar, Clock } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
+import { fetchPatientAppointments } from '@/lib/appointmentApi'
 import Image from 'next/image'
 
 // Mock Data for "Your Doctors"
@@ -53,6 +55,44 @@ export default function DashboardOverview() {
 
     const [currentDate, setCurrentDate] = useState(new Date())
 
+    // Fetch appointments
+    const { data: appointmentsResponse, isLoading } = useQuery({
+        queryKey: ['patientAppointments'],
+        queryFn: () => fetchPatientAppointments(1, 100), // Fetch up to 100 appointments
+        select: (data) => data?.data || [],
+        refetchInterval: 30000, // Refetch every 30 seconds
+    })
+
+    // Transform appointments for calendar and list
+    const appointments = (appointmentsResponse || []).map(apt => ({
+        id: apt.id,
+        doctorName: apt.doctor?.name || 'Unknown Doctor',
+        specialty: apt.doctor?.specialty || 'General',
+        date: new Date(apt.scheduledAt),
+        time: new Date(apt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        mode: apt.meetingName ? 'ONLINE' : 'CLINIC', // Simple heuristic if mode not in API
+        status: apt.status,
+    }))
+
+    // Filter upcoming appointments (future dates)
+    const upcomingAppointments = appointments.filter(apt =>
+        new Date(apt.date) >= new Date()
+    ).sort((a, b) => a.date - b.date)
+
+    // Derive consulted doctors from past appointments
+    const consultedDoctors = Array.from(new Set(appointments.map(a => a.doctorName)))
+        .map(name => {
+            const apt = appointments.find(a => a.doctorName === name)
+            return {
+                id: apt.id, // Using appointment ID as placeholder, ideally use doctor ID
+                name: name,
+                specialty: apt.specialty,
+                image: null,
+                lastConsult: new Date(apt.date).toLocaleDateString()
+            }
+        }).slice(0, 3) // Show top 3
+
+
     const daysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
     const firstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay()
 
@@ -86,8 +126,8 @@ export default function DashboardOverview() {
             days.push(
                 <div key={i} className={`h-24 border border-gray-100 rounded-lg p-2 relative ${appointmentsForDay.length > 0 ? 'bg-blue-50/30' : 'bg-white'}`}>
                     <span className={`text-sm font-medium ${new Date().toDateString() === currentDayDate.toDateString()
-                            ? 'bg-primary-blue text-white w-6 h-6 flex items-center justify-center rounded-full'
-                            : 'text-gray-700'
+                        ? 'bg-primary-blue text-white w-6 h-6 flex items-center justify-center rounded-full'
+                        : 'text-gray-700'
                         }`}>{i}</span>
 
                     {appointmentsForDay.map(apt => (
@@ -99,6 +139,14 @@ export default function DashboardOverview() {
             )
         }
         return days
+    }
+
+    if (isLoading) {
+        return (
+            <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-8 flex items-center justify-center min-h-[50vh]">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue"></div>
+            </div>
+        )
     }
 
     return (
@@ -118,7 +166,7 @@ export default function DashboardOverview() {
                     <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Recently Consulted</span>
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {consultedDoctors.map((doctor) => (
+                    {consultedDoctors.length > 0 ? consultedDoctors.map((doctor) => (
                         <div key={doctor.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all cursor-pointer group">
                             <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center text-primary-blue font-bold text-xl group-hover:scale-105 transition-transform">
                                 {doctor.name.charAt(4)}
@@ -129,8 +177,15 @@ export default function DashboardOverview() {
                                 <p className="text-[10px] text-gray-400 mt-1">Last consulted: {doctor.lastConsult}</p>
                             </div>
                         </div>
-                    ))}
-                    <div className="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-500 hover:bg-gray-100 hover:text-primary-blue transition-colors cursor-pointer min-h-[88px]">
+                    )) : (
+                        <div className="col-span-full text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                            <p className="text-gray-500 mb-2">You haven't consulted any doctors yet.</p>
+                        </div>
+                    )}
+                    <div
+                        onClick={() => usePatientStore.getState().setActiveTab('FIND_SPECIALIST')}
+                        className="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-500 hover:bg-gray-100 hover:text-primary-blue transition-colors cursor-pointer min-h-[88px]"
+                    >
                         <span className="text-sm font-medium">+ Find new doctor</span>
                     </div>
                 </div>
@@ -172,7 +227,7 @@ export default function DashboardOverview() {
                 {/* List View for Mobile / Quick Access */}
                 <div className="mt-6 space-y-3">
                     <h3 className="text-sm font-medium text-gray-900">Next Up</h3>
-                    {upcomingAppointments.map(apt => (
+                    {upcomingAppointments.length > 0 ? upcomingAppointments.map(apt => (
                         <div key={apt.id} className="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-4 shadow-sm">
                             <div className="bg-blue-50 text-primary-blue p-3 rounded-lg flex flex-col items-center justify-center min-w-[60px]">
                                 <span className="text-xs font-bold uppercase">{apt.date.toLocaleString('default', { month: 'short' })}</span>
@@ -200,7 +255,9 @@ export default function DashboardOverview() {
                                 </div>
                             </div>
                         </div>
-                    ))}
+                    )) : (
+                        <p className="text-gray-500 text-sm">No upcoming appointments.</p>
+                    )}
                 </div>
             </section>
         </div>
