@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Video, MapPin, Calendar, Clock } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
@@ -64,7 +64,8 @@ export default function DashboardOverview() {
     })
 
     // Transform appointments for calendar and list
-    const appointments = (appointmentsResponse || []).map(apt => ({
+    // Transform appointments for calendar and list
+    const appointments = useMemo(() => (appointmentsResponse || []).map(apt => ({
         id: apt.id,
         doctorName: apt.doctor?.name || 'Unknown Doctor',
         specialty: apt.doctor?.specialty || 'General',
@@ -72,25 +73,29 @@ export default function DashboardOverview() {
         time: new Date(apt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         mode: apt.meetingName ? 'ONLINE' : 'CLINIC', // Simple heuristic if mode not in API
         status: apt.status,
-    }))
+    })), [appointmentsResponse])
 
     // Filter upcoming appointments (future dates)
-    const upcomingAppointments = appointments.filter(apt =>
+    const upcomingAppointments = useMemo(() => appointments.filter(apt =>
         new Date(apt.date) >= new Date()
-    ).sort((a, b) => a.date - b.date)
+    ).sort((a, b) => a.date - b.date), [appointments])
 
     // Derive consulted doctors from past appointments
-    const consultedDoctors = Array.from(new Set(appointments.map(a => a.doctorName)))
-        .map(name => {
-            const apt = appointments.find(a => a.doctorName === name)
-            return {
-                id: apt.id, // Using appointment ID as placeholder, ideally use doctor ID
-                name: name,
-                specialty: apt.specialty,
-                image: null,
-                lastConsult: new Date(apt.date).toLocaleDateString()
+    const consultedDoctors = useMemo(() => {
+        const uniqueDoctors = new Map();
+        appointments.forEach(apt => {
+            if (!uniqueDoctors.has(apt.doctorName)) {
+                uniqueDoctors.set(apt.doctorName, {
+                    id: apt.id, // Using appointment ID as placeholder, ideally use doctor ID
+                    name: apt.doctorName,
+                    specialty: apt.specialty,
+                    image: null,
+                    lastConsult: new Date(apt.date).toLocaleDateString()
+                });
             }
-        }).slice(0, 3) // Show top 3
+        });
+        return Array.from(uniqueDoctors.values()).slice(0, 3);
+    }, [appointments])
 
 
     const daysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
@@ -169,7 +174,7 @@ export default function DashboardOverview() {
                     {consultedDoctors.length > 0 ? consultedDoctors.map((doctor) => (
                         <div key={doctor.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all cursor-pointer group">
                             <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center text-primary-blue font-bold text-xl group-hover:scale-105 transition-transform">
-                                {doctor.name.charAt(4)}
+                                {doctor.name.startsWith('Dr. ') ? doctor.name.charAt(4) : doctor.name.charAt(0)}
                             </div>
                             <div>
                                 <h3 className="font-semibold text-gray-900 group-hover:text-primary-blue transition-colors">{doctor.name}</h3>

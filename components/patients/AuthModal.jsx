@@ -414,6 +414,11 @@ export default function AuthModal() {
       setResetError('Password must be at least 8 characters')
       return
     }
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+    if (!newPassword || !passwordRegex.test(newPassword)) {
+      setResetError('Password must be at least 8 characters with uppercase, lowercase, and number')
+      return
+    }
 
     setResetError('')
     setIsLoading(true)

@@ -54,7 +54,7 @@ export default function AppointmentsList() {
                         {/* Left: Doctor Info & Time */}
                         <div className="flex gap-4">
                             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center text-primary-blue font-bold text-lg sm:text-xl flex-shrink-0">
-                                {apt.doctorName.charAt(4)}
+                                {apt.doctorName.startsWith('Dr. ') ? apt.doctorName.charAt(4) : apt.doctorName.charAt(0)}
                             </div>
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900">{apt.doctorName}</h3>
