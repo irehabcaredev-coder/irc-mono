@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState,Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useDoctorStore } from '@/store/useDoctorStore'
@@ -15,7 +15,7 @@ function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
-  
+
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
   const setAuth = useDoctorStore((state) => state.setAuth)
   const doctorProfile = useDoctorStore((state) => state.doctorProfile)
@@ -28,8 +28,8 @@ function DashboardContent() {
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
       }).join(''));
       return JSON.parse(jsonPayload);
     } catch (e) {
@@ -65,39 +65,39 @@ function DashboardContent() {
     if (!isHydrated) return
 
     const handleAuth = () => {
-        // 1. Check for token in URL
-        if (tokenFromUrl) {
-            localStorage.setItem('doctor_token', tokenFromUrl)
-            
-            const decoded = parseJwt(tokenFromUrl)
-            if (decoded && decoded.email && decoded.doctorId) {
-                // Update store with initial auth info so useQuery can run
-                setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
-                return 
-            }
-        }
+      // 1. Check for token in URL
+      if (tokenFromUrl) {
+        localStorage.setItem('doctor_token', tokenFromUrl)
 
-        // 2. Regular auth check
-        if (!doctorAuth.isAuthed) {
-           // Double check localStorage
-           const localToken = localStorage.getItem('doctor_token')
-           if (localToken) {
-              const decoded = parseJwt(localToken)
-              if (decoded) {
-                setAuth(decoded.email, 'email', decoded.doctorId, localToken)
-                return
-              }
-           }
-           router.push('/auth')
-        } else if (doctorAuth.onboardingStep !== 'COMPLETE') {
-           // If we have a token from URL, let the profile fetch (useQuery) determine the true step
-           // instead of redirecting immediately based on potentially stale local state
-           if (!tokenFromUrl) {
-               router.push('/onboarding')
-           }
+        const decoded = parseJwt(tokenFromUrl)
+        if (decoded && decoded.email && decoded.doctorId) {
+          // Update store with initial auth info so useQuery can run
+          setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
+          return
         }
+      }
+
+      // 2. Regular auth check
+      if (!doctorAuth.isAuthed) {
+        // Double check localStorage
+        const localToken = localStorage.getItem('doctor_token')
+        if (localToken) {
+          const decoded = parseJwt(localToken)
+          if (decoded) {
+            setAuth(decoded.email, 'email', decoded.doctorId, localToken)
+            return
+          }
+        }
+        router.push('/auth')
+      } else if (doctorAuth.onboardingStep !== 'COMPLETE' && !doctorAuth.isOnboarded) {
+        // If we have a token from URL, let the profile fetch (useQuery) determine the true step
+        // instead of redirecting immediately based on potentially stale local state
+        if (!tokenFromUrl) {
+          router.push('/onboarding')
+        }
+      }
     }
-    
+
     handleAuth()
   }, [isHydrated, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.onboardingStep, router, setAuth])
 
@@ -169,7 +169,7 @@ function DashboardContent() {
   }
 
   // Allow render if we have a token from URL to show something while syncing
-  if ((!doctorAuth.isAuthed && !tokenFromUrl) || (doctorAuth.onboardingStep !== 'COMPLETE' && !tokenFromUrl)) {
+  if ((!doctorAuth.isAuthed && !tokenFromUrl) || (doctorAuth.onboardingStep !== 'COMPLETE' && !doctorAuth.isOnboarded && !tokenFromUrl)) {
     return null
   }
 
@@ -191,13 +191,13 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-paper relative">
-      <MobileMenuButton 
-        onClick={() => setSidebarOpen(true)} 
-        isOpen={sidebarOpen} 
+      <MobileMenuButton
+        onClick={() => setSidebarOpen(true)}
+        isOpen={sidebarOpen}
       />
-      <DashboardSidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
+      <DashboardSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
       <FeedbackButton />
       <div className="lg:ml-64 min-h-screen">
@@ -336,12 +336,12 @@ function DashboardContent() {
 export default function DashboardOverview() {
   return (
     <Suspense fallback={
-       <div className="min-h-screen bg-paper flex items-center justify-center">
+      <div className="min-h-screen bg-paper flex items-center justify-center">
         <div className="text-center">
-           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
-           <p className="text-gray-600">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
         </div>
-       </div>
+      </div>
     }>
       <DashboardContent />
     </Suspense>

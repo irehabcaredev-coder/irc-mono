@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, ArrowLeft } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
@@ -46,14 +46,15 @@ function OnboardingContent() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [isHydrated, setIsHydrated] = useState(false)
+  const hasInitialized = useRef(false)
 
   // JWT Parser (Robust for base64url)
   const parseJwt = (token) => {
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
       }).join(''));
       return JSON.parse(jsonPayload);
     } catch (e) {
@@ -95,52 +96,85 @@ function OnboardingContent() {
     setIsHydrated(true)
   }, [])
 
+  // Helper: map backend onboarding step to UI step number
+  const getStepFromOnboardingStep = (onboardingStep) => {
+    switch (onboardingStep) {
+      case 'PERSONAL_INFO_COMPLETE':
+        return { step: 2, redirect: null }   // Move to professional info
+      case 'PROFESSIONAL_INFO_COMPLETE':
+        return { step: 3, redirect: null }   // Move to availability
+      case 'AVAILABILITY_COMPLETE':
+      case 'COMPLETE':
+        return { step: null, redirect: '/dashboard' }
+      case 'EMAIL_VERIFIED':
+      default:
+        return { step: 1, redirect: null }   // Start at personal info
+    }
+  }
+
   useEffect(() => {
     // Only run auth checks after hydration
     if (!isHydrated) return
 
+    // Skip if initial auth/step setup has already been done
+    // This prevents handleSubmitStep's setOnboardingStep from re-triggering this effect
+    if (hasInitialized.current) return
+
     const handleAuth = async () => {
-      // 1. Check for token in URL
+      // 1. Check for token in URL (Google OAuth flow)
       if (tokenFromUrl) {
-          // IMMEDIATE PRIORITY: Save token to localStorage so API calls work
-          localStorage.setItem('doctor_token', tokenFromUrl)
-          
-          const decoded = parseJwt(tokenFromUrl)
-          if (decoded && decoded.email && decoded.doctorId) {
-              // Update store with initial auth info
-              setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
-              
-              // Sync with backend to get latest onboarding step and data
-              try {
-                const profileResult = await fetchDoctorProfile(decoded.doctorId)
-                if (profileResult.success && profileResult.data) {
-                  const { onboardingStep, ...profileData } = profileResult.data
-                  
-                  // Update store with latest step
-                  setOnboardingStep(onboardingStep)
-                  
-                  // Update profile data if available
-                  if (profileData.personalInfo) {
-                    updateBasicDetails(profileData.personalInfo)
-                  }
-                  if (profileData.professionalInfo) {
-                    updateProfessionalDetails(profileData.professionalInfo)
-                  }
-                  if (profileData.availability) {
-                    updatePracticeDetails(profileData.availability)
-                  }
-                  
-                  // If complete, mark as onboarded
-                   if (onboardingStep === 'COMPLETE') {
-                      setOnboarded(profileResult.data)
-                   }
-                }
-              } catch (error) {
-                console.error("Failed to sync profile:", error)
-                // Continue with URL token, user might be new
+        // IMMEDIATE PRIORITY: Save token to localStorage so API calls work
+        localStorage.setItem('doctor_token', tokenFromUrl)
+
+        const decoded = parseJwt(tokenFromUrl)
+        if (decoded && decoded.email && decoded.doctorId) {
+          // Update store with initial auth info
+          setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
+
+          let resolvedOnboardingStep = null
+
+          // Sync with backend to get latest onboarding step and data
+          try {
+            const profileResult = await fetchDoctorProfile(decoded.doctorId)
+            if (profileResult.success && profileResult.data) {
+              const { onboardingStep, ...profileData } = profileResult.data
+
+              resolvedOnboardingStep = onboardingStep
+
+              // Update store with latest step
+              setOnboardingStep(onboardingStep)
+
+              // Update profile data if available
+              if (profileData.personalInfo) {
+                updateBasicDetails(profileData.personalInfo)
               }
-              return // Stay on page to complete onboarding
+              if (profileData.professionalInfo) {
+                updateProfessionalDetails(profileData.professionalInfo)
+              }
+              if (profileData.availability) {
+                updatePracticeDetails(profileData.availability)
+              }
+
+              // If complete, mark as onboarded
+              if (onboardingStep === 'COMPLETE') {
+                setOnboarded(profileResult.data)
+              }
+            }
+          } catch (error) {
+            console.error("Failed to sync profile:", error)
+            // Continue with URL token, user might be new — start at step 1
           }
+
+          // Determine and set the correct step for this Google OAuth user
+          const { step: resolvedStep, redirect } = getStepFromOnboardingStep(resolvedOnboardingStep)
+          if (redirect) {
+            router.push(redirect)
+          } else {
+            setStep(resolvedStep)
+          }
+          hasInitialized.current = true
+          return
+        }
       }
 
       // 2. If no URL token, check if already authenticated
@@ -148,37 +182,30 @@ function OnboardingContent() {
         // Double check localStorage just in case
         const localToken = localStorage.getItem('doctor_token')
         if (localToken) {
-           const decoded = parseJwt(localToken)
-           if (decoded) {
-             setAuth(decoded.email, 'email', decoded.doctorId, localToken)
-             return
-           }
+          const decoded = parseJwt(localToken)
+          if (decoded) {
+            setAuth(decoded.email, 'email', decoded.doctorId, localToken)
+            // Don't mark initialized yet — effect will re-run once auth is set
+            return
+          }
         }
-        
+
         router.push('/auth')
         return
       }
 
-      // 3. Determine starting step based on onboarding step from API
-      // Use the store's onboardingStep which might have just been updated above
-      const currentStep = doctorAuth.onboardingStep
-      
-      if (currentStep === 'COMPLETE') {
-        router.push('/dashboard')
-        return
-      } else if (currentStep === 'PERSONAL_INFO_COMPLETE') {
-        setStep(2) // Move to professional info
-      } else if (currentStep === 'PROFESSIONAL_INFO_COMPLETE') {
-        setStep(3) // Move to availability
-      } else if (currentStep === 'AVAILABILITY_COMPLETE') {
-        router.push('/dashboard') // Should be complete
+      // 3. Determine starting step based on onboarding step from store
+      const { step: resolvedStep, redirect } = getStepFromOnboardingStep(doctorAuth.onboardingStep)
+      if (redirect) {
+        router.push(redirect)
       } else {
-        setStep(1) // Default: Start at personal info
+        setStep(resolvedStep)
       }
+      hasInitialized.current = true
     }
 
     handleAuth()
-    
+
   }, [isHydrated, tokenFromUrl, router, setAuth, setOnboardingStep, setOnboarded, updateBasicDetails, updateProfessionalDetails, updatePracticeDetails, doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep])
 
   const validateStep = (stepNum) => {
@@ -286,7 +313,9 @@ function OnboardingContent() {
 
         if (result.success && result.data) {
           updatePracticeDetails(practiceData)
-          setOnboardingStep(result.data.onboardingStep)
+          // Force COMPLETE regardless of backend response to prevent
+          // dashboard from redirecting back to onboarding
+          setOnboardingStep('COMPLETE')
 
           // Mark as onboarded and save profile
           const completeProfile = {
@@ -389,16 +418,16 @@ function OnboardingContent() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Name *
                   </label>
-                    <input
-                      type="text"
-                      value={basicData?.name || ''}
-                      onChange={(e) => {
-                        setBasicData((prev) => ({ ...prev, name: e.target.value }))
-                        if (errors.name) setErrors((prev) => ({ ...prev, name: null }))
-                      }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                      placeholder="Dr. John Doe"
-                    />
+                  <input
+                    type="text"
+                    value={basicData?.name || ''}
+                    onChange={(e) => {
+                      setBasicData((prev) => ({ ...prev, name: e.target.value }))
+                      if (errors.name) setErrors((prev) => ({ ...prev, name: null }))
+                    }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+                    placeholder="Dr. John Doe"
+                  />
                   {errors.name && (
                     <p className="mt-1 text-sm text-accent-red">{errors.name}</p>
                   )}
@@ -481,11 +510,10 @@ function OnboardingContent() {
                         key={lang}
                         type="button"
                         onClick={() => toggleLanguage(lang)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                          basicData?.languages?.includes(lang)
-                            ? 'bg-primary-blue text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${basicData?.languages?.includes(lang)
+                          ? 'bg-primary-blue text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
                       >
                         {lang}
                       </button>
@@ -640,11 +668,10 @@ function OnboardingContent() {
                         key={day}
                         type="button"
                         onClick={() => toggleDay(day)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                          practiceData?.availableDays?.includes(day)
-                            ? 'bg-primary-blue text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${practiceData?.availableDays?.includes(day)
+                          ? 'bg-primary-blue text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
                       >
                         {day}
                       </button>
@@ -715,8 +742,8 @@ function OnboardingContent() {
                 {submitLoading
                   ? 'Saving...'
                   : step === 3
-                  ? 'Complete Setup'
-                  : 'Next'}
+                    ? 'Complete Setup'
+                    : 'Next'}
                 {!submitLoading && <ArrowRight className="w-5 h-5 ml-2" />}
               </button>
             </div>
@@ -732,8 +759,8 @@ export default function OnboardingPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-paper flex items-center justify-center">
         <div className="text-center">
-           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
-           <p className="text-gray-600">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     }>
