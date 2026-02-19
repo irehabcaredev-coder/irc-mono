@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, ArrowLeft } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
@@ -49,14 +49,15 @@ function OnboardingContent() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [isHydrated, setIsHydrated] = useState(false)
+  const hasInitialized = useRef(false)
 
   // JWT Parser (Robust for base64url)
   const parseJwt = (token) => {
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
       }).join(''));
       return JSON.parse(jsonPayload);
     } catch (e) {
@@ -93,9 +94,9 @@ function OnboardingContent() {
     },
   })
 
-  // Step 5: Payment Info state
-  const [paymentData, setPaymentData] = useState(doctorProfile.payment || {
-    consultationFee: 0,
+  // Step 4: Payment Info state
+  const [paymentData, setPaymentData] = useState({
+    consultationFee: '',
     bankAccountNumber: '',
     bankIfsc: '',
     bankBeneficiaryName: '',
@@ -106,123 +107,119 @@ function OnboardingContent() {
     setIsHydrated(true)
   }, [])
 
-  // Debug logs
-  console.log('OnboardingPage Render. Step:', step, 'Authed:', doctorAuth.isAuthed, 'Hydrated:', isHydrated)
-
-  const tokenProcessed = useRef(false)
-  
-  // Helper to sync profile data from backend
-  const syncDoctorData = async (doctorId) => {
-    console.log('Syncing doctor data for:', doctorId)
-    try {
-      const profileResult = await fetchDoctorProfile(doctorId)
-      if (profileResult.success && profileResult.data) {
-        console.log('Profile synced. Step:', profileResult.data.onboardingStep)
-        const { onboardingStep, ...profileData } = profileResult.data
-        
-        // Update store with latest step
-        setOnboardingStep(onboardingStep)
-        
-        // Update profile data if available
-        if (profileData.personalInfo) {
-          updateBasicDetails(profileData.personalInfo)
-        }
-        if (profileData.professionalInfo) {
-          updateProfessionalDetails(profileData.professionalInfo)
-        }
-        if (profileData.availability) {
-          updatePracticeDetails(profileData.availability)
-        }
-        if (profileData.payment) {
-          updatePaymentDetails(profileData.payment)
-        }
-        
-        // If complete, mark as onboarded
-         if (onboardingStep === 'COMPLETE') {
-            setOnboarded(profileResult.data)
-         }
-      }
-    } catch (error) {
-      console.error("Failed to sync profile:", error)
+  // Helper: map backend onboarding step to UI step number
+  const getStepFromOnboardingStep = (onboardingStep) => {
+    switch (onboardingStep) {
+      case 'PERSONAL_INFO_COMPLETE':
+        return { step: 2, redirect: null }   // Move to professional info
+      case 'PROFESSIONAL_INFO_COMPLETE':
+        return { step: 3, redirect: null }   // Move to availability
+      case 'AVAILABILITY_COMPLETE':
+      case 'PAYMENT_INFO_COMPLETE':
+        return { step: 4, redirect: null }   // Move to payment info
+      case 'COMPLETE':
+        return { step: null, redirect: '/dashboard' }
+      case 'EMAIL_VERIFIED':
+      default:
+        return { step: 1, redirect: null }   // Start at personal info
     }
   }
 
-  // Handle Token from URL (Run once)
   useEffect(() => {
-    console.log('Effect 1: URL Token. URLToken:', !!tokenFromUrl, 'Processed:', tokenProcessed.current)
-    if (!isHydrated || !tokenFromUrl || tokenProcessed.current) return
+    // Only run auth checks after hydration
+    if (!isHydrated) return
 
-    const handleToken = async () => {
-      console.log('Processing URL Token...')
-      tokenProcessed.current = true
-      
-      // IMMEDIATE PRIORITY: Save token to localStorage so API calls work
-      localStorage.setItem('doctor_token', tokenFromUrl)
-      
-      const decoded = parseJwt(tokenFromUrl)
-      if (decoded && decoded.email && decoded.doctorId) {
-          console.log('URL Token Decoded. Setting Auth.')
+    // Skip if initial auth/step setup has already been done
+    // This prevents handleSubmitStep's setOnboardingStep from re-triggering this effect
+    if (hasInitialized.current) return
+
+    const handleAuth = async () => {
+      // 1. Check for token in URL (Google OAuth flow)
+      if (tokenFromUrl) {
+        // IMMEDIATE PRIORITY: Save token to localStorage so API calls work
+        localStorage.setItem('doctor_token', tokenFromUrl)
+
+        const decoded = parseJwt(tokenFromUrl)
+        if (decoded && decoded.email && decoded.doctorId) {
+          // Update store with initial auth info
           setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
-          
-          // Clear token from URL
-          const newUrl = window.location.pathname
-          window.history.replaceState({}, '', newUrl)
 
-          // Sync with backend
-          await syncDoctorData(decoded.doctorId)
+          let resolvedOnboardingStep = null
+
+          // Sync with backend to get latest onboarding step and data
+          try {
+            const profileResult = await fetchDoctorProfile(decoded.doctorId)
+            if (profileResult.success && profileResult.data) {
+              const { onboardingStep, ...profileData } = profileResult.data
+
+              resolvedOnboardingStep = onboardingStep
+
+              // Update store with latest step
+              setOnboardingStep(onboardingStep)
+
+              // Update profile data if available
+              if (profileData.personalInfo) {
+                updateBasicDetails(profileData.personalInfo)
+              }
+              if (profileData.professionalInfo) {
+                updateProfessionalDetails(profileData.professionalInfo)
+              }
+              if (profileData.availability) {
+                updatePracticeDetails(profileData.availability)
+              }
+
+              // If complete, mark as onboarded
+              if (onboardingStep === 'COMPLETE') {
+                setOnboarded(profileResult.data)
+              }
+            }
+          } catch (error) {
+            console.error("Failed to sync profile:", error)
+            // Continue with URL token, user might be new — start at step 1
+          }
+
+          // Determine and set the correct step for this Google OAuth user
+          const { step: resolvedStep, redirect } = getStepFromOnboardingStep(resolvedOnboardingStep)
+          if (redirect) {
+            router.push(redirect)
+          } else {
+            setStep(resolvedStep)
+          }
+          hasInitialized.current = true
+          return
+        }
       }
-    }
 
-    handleToken()
-  }, [isHydrated, tokenFromUrl, setAuth, setOnboardingStep, setOnboarded, updateBasicDetails, updateProfessionalDetails, updatePracticeDetails])
+      // 2. If no URL token, check if already authenticated
+      if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
+        // Double check localStorage just in case
+        const localToken = localStorage.getItem('doctor_token')
+        if (localToken) {
+          const decoded = parseJwt(localToken)
+          if (decoded) {
+            setAuth(decoded.email, 'email', decoded.doctorId, localToken)
+            // Don't mark initialized yet — effect will re-run once auth is set
+            return
+          }
+        }
 
-  // Handle Logic Step & Route Protection
-  useEffect(() => {
-    console.log('Effect 2: Route Logic. Authed:', doctorAuth.isAuthed)
-    if (!isHydrated || tokenFromUrl) return // Skip if handling token or not hydrated
-
-    // If no URL token, check if already authenticated
-    if (!doctorAuth.isAuthed || !doctorAuth.doctorId) {
-      // Double check localStorage just in case
-      const localToken = localStorage.getItem('doctor_token')
-      console.log('Not Authed in store. Checking LocalStorage:', !!localToken)
-      
-      if (localToken) {
-         const decoded = parseJwt(localToken)
-         if (decoded && decoded.doctorId) {
-           console.log('Found Local Token. Restoring Auth.')
-           setAuth(decoded.email, 'email', decoded.doctorId, localToken)
-           // ALSO sync profile to ensure onboarding step is correct
-           syncDoctorData(decoded.doctorId)
-           return
-         }
+        router.push('/auth')
+        return
       }
-      
-      console.log('No auth found. Redirecting to /auth')
-      router.push('/auth')
-      return
+
+      // 3. Determine starting step based on onboarding step from store
+      const { step: resolvedStep, redirect } = getStepFromOnboardingStep(doctorAuth.onboardingStep)
+      if (redirect) {
+        router.push(redirect)
+      } else {
+        setStep(resolvedStep)
+      }
+      hasInitialized.current = true
     }
 
-    // Determine starting step based on onboarding step from API
-    const currentStep = doctorAuth.onboardingStep
-    console.log('Determining step from:', currentStep)
-    
-    if (currentStep === 'COMPLETE') {
-      router.push('/dashboard')
-      return
-    } else if (currentStep === 'PERSONAL_INFO_COMPLETE') {
-      setStep(1)
-    } else if (currentStep === 'PROFESSIONAL_INFO_COMPLETE') {
-      setStep(2)
-    } else if (currentStep === 'AVAILABILITY_COMPLETE') {
-      setStep(3)
-    } else if (currentStep === 'PAYMENT_INFO_COMPLETE') {
-      setStep(4)
-    } else {
-      setStep(1) // Default
-    }
-    
-  }, [isHydrated, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep, router, setAuth, setOnboardingStep, setOnboarded, updateBasicDetails, updateProfessionalDetails, updatePracticeDetails])
+    handleAuth()
+
+  }, [isHydrated, tokenFromUrl, router, setAuth, setOnboardingStep, setOnboarded, updateBasicDetails, updateProfessionalDetails, updatePracticeDetails, doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep])
 
   const validateStep = (stepNum) => {
     const newErrors = {}
@@ -288,17 +285,21 @@ function OnboardingContent() {
 
     if (stepNum === 4) {
       // Step 4: Payment Info
-      if (!paymentData?.consultationFee || paymentData.consultationFee < 0) {
+      const fee = Number(paymentData?.consultationFee)
+      if (!paymentData?.consultationFee || isNaN(fee) || fee <= 0) {
         newErrors.consultationFee = 'Please enter a valid consultation fee'
       }
-      if (!paymentData?.bankAccountNumber || paymentData.bankAccountNumber.length < 8) {
-        newErrors.bankAccountNumber = 'Please enter a valid bank account number'
+      const accNum = paymentData?.bankAccountNumber?.trim() || ''
+      if (accNum.length < 9 || accNum.length > 18) {
+        newErrors.bankAccountNumber = 'Account number must be 9-18 characters'
       }
-      if (!paymentData?.bankIfsc || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(paymentData.bankIfsc)) {
-        newErrors.bankIfsc = 'Please enter a valid IFSC code (e.g., HDFC0001234)'
+      const ifsc = (paymentData?.bankIfsc?.trim() || '').toUpperCase()
+      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+        newErrors.bankIfsc = 'Invalid IFSC code (e.g. SBIN0001234)'
       }
-      if (!paymentData?.bankBeneficiaryName || paymentData.bankBeneficiaryName.trim().length < 3) {
-        newErrors.bankBeneficiaryName = 'Please enter beneficiary name'
+      const beneficiary = paymentData?.bankBeneficiaryName?.trim() || ''
+      if (beneficiary.length < 2) {
+        newErrors.bankBeneficiaryName = 'Beneficiary name must be at least 2 characters'
       }
     }
 
@@ -339,23 +340,28 @@ function OnboardingContent() {
           setStep(3)
         }
       } else if (stepNum === 3) {
-        // Submit Availability (now moves to step 4)
+        // Submit Availability
         const apiData = transformPracticeDetailsToAPI(practiceData)
         const result = await submitAvailability(doctorId, apiData)
 
         if (result.success && result.data) {
           updatePracticeDetails(practiceData)
           setOnboardingStep(result.data.onboardingStep)
-          setStep(4)
+          setStep(4) // Move to payment info
         }
       } else if (stepNum === 4) {
         // Submit Payment Info (final step)
-        const apiData = transformPaymentDetailsToAPI(paymentData)
-        const result = await submitPaymentInfo(doctorId, apiData)
+        const result = await submitPaymentInfo(doctorId, {
+          consultationFee: Number(paymentData.consultationFee),
+          bankAccountNumber: paymentData.bankAccountNumber,
+          bankIfsc: paymentData.bankIfsc,
+          bankBeneficiaryName: paymentData.bankBeneficiaryName,
+        })
 
         if (result.success && result.data) {
-          updatePaymentDetails(paymentData)
-          setOnboardingStep(result.data.onboardingStep)
+          // Force COMPLETE regardless of backend response to prevent
+          // dashboard from redirecting back to onboarding
+          setOnboardingStep('COMPLETE')
 
           // Mark as onboarded and save profile
           const completeProfile = {
@@ -460,16 +466,16 @@ function OnboardingContent() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Name *
                   </label>
-                    <input
-                      type="text"
-                      value={basicData?.name || ''}
-                      onChange={(e) => {
-                        setBasicData((prev) => ({ ...prev, name: e.target.value }))
-                        if (errors.name) setErrors((prev) => ({ ...prev, name: null }))
-                      }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                      placeholder="Dr. John Doe"
-                    />
+                  <input
+                    type="text"
+                    value={basicData?.name || ''}
+                    onChange={(e) => {
+                      setBasicData((prev) => ({ ...prev, name: e.target.value }))
+                      if (errors.name) setErrors((prev) => ({ ...prev, name: null }))
+                    }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+                    placeholder="Dr. John Doe"
+                  />
                   {errors.name && (
                     <p className="mt-1 text-sm text-accent-red">{errors.name}</p>
                   )}
@@ -552,11 +558,10 @@ function OnboardingContent() {
                         key={lang}
                         type="button"
                         onClick={() => toggleLanguage(lang)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                          basicData?.languages?.includes(lang)
-                            ? 'bg-primary-blue text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${basicData?.languages?.includes(lang)
+                          ? 'bg-primary-blue text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
                       >
                         {lang}
                       </button>
@@ -717,11 +722,10 @@ function OnboardingContent() {
                         key={day}
                         type="button"
                         onClick={() => toggleDay(day)}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                          practiceData?.availableDays?.includes(day)
-                            ? 'bg-primary-blue text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${practiceData?.availableDays?.includes(day)
+                          ? 'bg-primary-blue text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
                       >
                         {day}
                       </button>
@@ -778,20 +782,31 @@ function OnboardingContent() {
             {/* Step 4: Payment Information */}
             {step === 4 && (
               <div className="space-y-6">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Final Step!</strong> Please enter your payment details to receive consultation payments. Your information is used to create a secure payment account.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Consultation Fee (INR) *
+                    Consultation Fee (₹) *
                   </label>
-                  <input
-                    type="number"
-                    value={paymentData?.consultationFee || ''}
-                    onChange={(e) => {
-                      setPaymentData((prev) => ({ ...prev, consultationFee: parseInt(e.target.value) || 0 }))
-                      if (errors.consultationFee) setErrors((prev) => ({ ...prev, consultationFee: null }))
-                    }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                    placeholder="500"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">₹</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={paymentData.consultationFee}
+                      onChange={(e) => {
+                        setPaymentData((prev) => ({ ...prev, consultationFee: e.target.value }))
+                        if (errors.consultationFee) setErrors((prev) => ({ ...prev, consultationFee: null }))
+                      }}
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+                      placeholder="500"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">Amount in INR that patients will pay per consultation</p>
                   {errors.consultationFee && (
                     <p className="mt-1 text-sm text-accent-red">{errors.consultationFee}</p>
                   )}
@@ -803,14 +818,16 @@ function OnboardingContent() {
                   </label>
                   <input
                     type="text"
-                    value={paymentData?.bankAccountNumber || ''}
+                    value={paymentData.bankAccountNumber}
                     onChange={(e) => {
-                      setPaymentData((prev) => ({ ...prev, bankAccountNumber: e.target.value }))
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 18)
+                      setPaymentData((prev) => ({ ...prev, bankAccountNumber: value }))
                       if (errors.bankAccountNumber) setErrors((prev) => ({ ...prev, bankAccountNumber: null }))
                     }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                    placeholder="1234567890"
+                    placeholder="Enter your bank account number"
                   />
+                  <p className="mt-1 text-xs text-gray-500">9-18 digit bank account number</p>
                   {errors.bankAccountNumber && (
                     <p className="mt-1 text-sm text-accent-red">{errors.bankAccountNumber}</p>
                   )}
@@ -822,14 +839,17 @@ function OnboardingContent() {
                   </label>
                   <input
                     type="text"
-                    value={paymentData?.bankIfsc || ''}
+                    maxLength={11}
+                    value={paymentData.bankIfsc}
                     onChange={(e) => {
-                      setPaymentData((prev) => ({ ...prev, bankIfsc: e.target.value.toUpperCase() }))
+                      const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11)
+                      setPaymentData((prev) => ({ ...prev, bankIfsc: value }))
                       if (errors.bankIfsc) setErrors((prev) => ({ ...prev, bankIfsc: null }))
                     }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                    placeholder="HDFC0001234"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent font-mono tracking-wider"
+                    placeholder="SBIN0001234"
                   />
+                  <p className="mt-1 text-xs text-gray-500">11-character IFSC code (e.g. SBIN0001234)</p>
                   {errors.bankIfsc && (
                     <p className="mt-1 text-sm text-accent-red">{errors.bankIfsc}</p>
                   )}
@@ -841,14 +861,15 @@ function OnboardingContent() {
                   </label>
                   <input
                     type="text"
-                    value={paymentData?.bankBeneficiaryName || ''}
+                    value={paymentData.bankBeneficiaryName}
                     onChange={(e) => {
                       setPaymentData((prev) => ({ ...prev, bankBeneficiaryName: e.target.value }))
                       if (errors.bankBeneficiaryName) setErrors((prev) => ({ ...prev, bankBeneficiaryName: null }))
                     }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                    placeholder="Dr. Siddhartha"
+                    placeholder="Name as per bank account"
                   />
+                  <p className="mt-1 text-xs text-gray-500">Name of the account holder as per bank records</p>
                   {errors.bankBeneficiaryName && (
                     <p className="mt-1 text-sm text-accent-red">{errors.bankBeneficiaryName}</p>
                   )}
@@ -873,8 +894,8 @@ function OnboardingContent() {
                 {submitLoading
                   ? 'Saving...'
                   : step === 4
-                  ? 'Complete Setup'
-                  : 'Next'}
+                    ? 'Complete Setup'
+                    : 'Next'}
                 {!submitLoading && <ArrowRight className="w-5 h-5 ml-2" />}
               </button>
             </div>
@@ -890,8 +911,8 @@ export default function OnboardingPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-paper flex items-center justify-center">
         <div className="text-center">
-           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
-           <p className="text-gray-600">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     }>

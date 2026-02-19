@@ -12,7 +12,7 @@ export const useDoctorStore = create(
         isOnboarded: false,
         doctorId: null,
         token: null, // JWT token from API
-        onboardingStep: null, // EMAIL_VERIFIED | PERSONAL_INFO_COMPLETE | PROFESSIONAL_INFO_COMPLETE | AVAILABILITY_COMPLETE | COMPLETE
+        onboardingStep: null, // EMAIL_VERIFIED | PERSONAL_INFO_COMPLETE | PROFESSIONAL_INFO_COMPLETE | AVAILABILITY_COMPLETE | PAYMENT_INFO_COMPLETE | COMPLETE
       },
 
       // Profile state (structured)
@@ -57,7 +57,7 @@ export const useDoctorStore = create(
             authProvider: provider,
             doctorId: doctorId || `doc_${Date.now()}`,
             token: token || state.doctorAuth.token,
-            onboardingStep: onboardingStep || state.doctorAuth.onboardingStep,
+            onboardingStep: onboardingStep !== undefined ? onboardingStep : state.doctorAuth.onboardingStep,
           },
         })),
 
