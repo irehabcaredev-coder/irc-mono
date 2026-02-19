@@ -36,6 +36,7 @@ export default function AuthModal() {
   const [phone, setPhone] = useState('')
   const [city, setCity] = useState('')
   const [issues, setIssues] = useState('')
+  const [nameError, setNameError] = useState('')
   const [ageError, setAgeError] = useState('')
   const [phoneError, setPhoneError] = useState('')
   const [otpError, setOtpError] = useState('')
@@ -246,6 +247,7 @@ export default function AuthModal() {
     setPhone('')
     setCity('')
     setIssues('')
+    setNameError('')
     setOtpSent(false)
     setPatientId(null)
     setMockOtp(null)
@@ -254,10 +256,23 @@ export default function AuthModal() {
 
   const handleCompleteRegistration = async () => {
     if (!name || !age || !gender || !phone || !city) return
-    if (parseInt(age) < 0 || parseInt(age) > 120) {
-      setAgeError(parseInt(age) < 0 ? 'Age cannot be negative' : 'Age must be 120 or less')
+
+    // Reset errors
+    setNameError('')
+    setAgeError('')
+    setPhoneError('')
+
+    // Validation
+    if (name.trim().length < 2) {
+      setNameError('Name must be at least 2 character')
       return
     }
+
+    if (parseInt(age) < 1 || parseInt(age) > 120) {
+      setAgeError(parseInt(age) < 1 ? 'Age must be at least 1' : 'Age must be 120 or less')
+      return
+    }
+
     if (phone.length !== 10 || !/^\d+$/.test(phone)) {
       setPhoneError('Enter a valid 10-digit phone number')
       return
@@ -268,8 +283,6 @@ export default function AuthModal() {
       return
     }
 
-    setAgeError('')
-    setPhoneError('')
     setIsLoading(true)
 
     try {
@@ -277,7 +290,7 @@ export default function AuthModal() {
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`
 
       const result = await submitPatientPersonalInfo(patientId, {
-        name,
+        name: name.trim(),
         phone: formattedPhone,
         gender: mapGenderToAPI(gender),
         age: parseInt(age),
@@ -300,7 +313,15 @@ export default function AuthModal() {
       }
     } catch (error) {
       if (error instanceof ApiError) {
-        setPhoneError(error.message || 'Failed to complete registration')
+        // Helper to determine where to show error
+        const msg = error.message || ''
+        if (msg.toLowerCase().includes('name')) {
+          setNameError(msg)
+        } else if (msg.toLowerCase().includes('age')) {
+          setAgeError(msg)
+        } else {
+          setPhoneError(msg || 'Failed to complete registration')
+        }
       } else {
         setPhoneError('An error occurred. Please try again.')
       }
@@ -591,6 +612,7 @@ export default function AuthModal() {
                   setPhone('')
                   setCity('')
                   setIssues('')
+                  setNameError('')
                 }}
                 className={`px-3 py-1 text-sm font-medium ${authMode === 'login'
                   ? 'text-primary-blue border-b-2 border-primary-blue'
@@ -618,6 +640,7 @@ export default function AuthModal() {
                   setPhone('')
                   setCity('')
                   setIssues('')
+                  setNameError('')
                 }}
                 className={`px-3 py-1 text-sm font-medium ${authMode === 'register'
                   ? 'text-primary-blue border-b-2 border-primary-blue'
@@ -849,10 +872,17 @@ export default function AuthModal() {
                     <input
                       type="text"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        setName(e.target.value)
+                        setNameError('')
+                      }}
                       placeholder="Enter your full name"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent ${nameError ? 'border-red-300' : 'border-gray-300'
+                        }`}
                     />
+                    {nameError && (
+                      <p className="text-xs text-accent-red mt-1">{nameError}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
