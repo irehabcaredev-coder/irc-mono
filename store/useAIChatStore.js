@@ -7,6 +7,9 @@ export const useAIChatStore = create(
       // Session ID - persisted to localStorage
       sessionId: null,
 
+      // Whether the current session was created with JWT auth
+      isSessionAuthed: false,
+
       // Current active chat ID
       currentChatId: null,
 
@@ -25,11 +28,12 @@ export const useAIChatStore = create(
       error: null,
 
       // Actions
-      setSessionId: (sessionId) => set({ sessionId }),
+      setSessionId: (sessionId, isAuthed = false) => set({ sessionId, isSessionAuthed: isAuthed }),
 
       clearSession: () =>
         set({
           sessionId: null,
+          isSessionAuthed: false,
           currentChatId: null,
           chatHistory: [],
           messages: [],
@@ -116,6 +120,7 @@ export const useAIChatStore = create(
       // Only persist sessionId
       partialize: (state) => ({
         sessionId: state.sessionId,
+        isSessionAuthed: state.isSessionAuthed,
       }),
     }
   )

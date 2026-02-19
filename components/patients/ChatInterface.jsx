@@ -39,6 +39,7 @@ export default function ChatInterface() {
     const [showMobileHistory, setShowMobileHistory] = useState(false) // Mobile overlay state
     const [imageData, setImageData] = useState(null) // Base64 image data
     const [imagePreview, setImagePreview] = useState(null) // Preview URL
+    const [isCreatingNewChat, setIsCreatingNewChat] = useState(false) // New chat creation state
     const messagesEndRef = useRef(null)
     const fileInputRef = useRef(null)
 
@@ -111,13 +112,18 @@ export default function ChatInterface() {
         setShowMobileHistory(false)
     }
 
-    const handleNewChat = () => {
-        startNewChat()
+    const handleNewChat = async () => {
+        setIsCreatingNewChat(true)
+        try {
+            await startNewChat()
+        } finally {
+            setIsCreatingNewChat(false)
+        }
         setShowMobileHistory(false)
     }
 
-    // Loading state
-    if (isSessionLoading) {
+    // Loading state - only show full-page loader on initial mount, not on new chat creation
+    if (isSessionLoading && !isCreatingNewChat) {
         return (
             <div className="flex h-[calc(100vh-8rem)] bg-white border border-gray-200 rounded-lg overflow-hidden max-w-7xl mx-auto my-4 sm:my-8 shadow-sm items-center justify-center">
                 <div className="text-center">
@@ -313,10 +319,15 @@ export default function ChatInterface() {
                 <div className="p-4 border-b border-gray-200 min-w-[20rem]">
                     <button
                         onClick={handleNewChat}
-                        className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-primary-blue px-4 py-3 rounded-lg hover:bg-blue-50 transition-colors font-medium shadow-sm"
+                        disabled={isCreatingNewChat}
+                        className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-primary-blue px-4 py-3 rounded-lg hover:bg-blue-50 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <Plus className="w-4 h-4" />
-                        New Chat
+                        {isCreatingNewChat ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Plus className="w-4 h-4" />
+                        )}
+                        {isCreatingNewChat ? 'Creating...' : 'New Chat'}
                     </button>
                 </div>
 
@@ -373,10 +384,15 @@ export default function ChatInterface() {
                     <div className="p-4 flex-1 overflow-y-auto bg-gray-50">
                         <button
                             onClick={handleNewChat}
-                            className="w-full flex items-center justify-center gap-2 bg-primary-blue text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium mb-6"
+                            disabled={isCreatingNewChat}
+                            className="w-full flex items-center justify-center gap-2 bg-primary-blue text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium mb-6 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <Plus className="w-4 h-4" />
-                            New Chat
+                            {isCreatingNewChat ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Plus className="w-4 h-4" />
+                            )}
+                            {isCreatingNewChat ? 'Creating...' : 'New Chat'}
                         </button>
 
                         <div className="relative mb-4">

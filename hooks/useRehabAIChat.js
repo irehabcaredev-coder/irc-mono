@@ -6,6 +6,7 @@ import { useAIChatStore } from '@/store/useAIChatStore'
 import { usePatientStore } from '@/store/usePatientStore'
 import {
   createSession,
+  deleteSession,
   sendChatMessage,
   getChatHistory,
   getChatMessages,
@@ -22,6 +23,7 @@ export function useRehabAIChat() {
   // Get AI chat state
   const {
     sessionId,
+    isSessionAuthed,
     currentChatId,
     messages,
     isSessionLoading,
@@ -41,33 +43,59 @@ export function useRehabAIChat() {
     setLoadingMessages,
     setError,
     clearError,
+    clearSession,
     startNewChat,
   } = useAIChatStore()
 
-  // Initialize session on mount
+  // Helper: create a fresh session and return the new session ID
+  const createFreshSession = useCallback(async () => {
+    setSessionLoading(true)
+    setError(null)
+
+    try {
+      const response = await createSession(isAuthed)
+      setSessionId(response.session_id, isAuthed)
+      startNewChat()
+      return response.session_id
+    } catch (err) {
+      console.error('[useRehabAIChat] Failed to create session:', err)
+      setError('Failed to initialize chat session. Please refresh the page.')
+      return null
+    } finally {
+      setSessionLoading(false)
+    }
+  }, [isAuthed, setSessionId, setSessionLoading, setError, startNewChat])
+
+  // Initialize session on mount; always create a fresh session.
+  // On unmount, clear the persisted session so a new one is created next time.
   useEffect(() => {
     async function initSession() {
-      if (sessionId) return // Already have a session
-
-      setSessionLoading(true)
-      setError(null)
-
-      try {
-        const response = await createSession(isAuthed)
-        setSessionId(response.session_id)
-
-        // Initialize with welcome message
-        startNewChat()
-      } catch (err) {
-        console.error('[useRehabAIChat] Failed to create session:', err)
-        setError('Failed to initialize chat session. Please refresh the page.')
-      } finally {
-        setSessionLoading(false)
+      // Auth state mismatch — delete old session on backend first
+      if (sessionId && isSessionAuthed !== isAuthed) {
+        console.info(
+          `[useRehabAIChat] Auth state changed (session: ${isSessionAuthed ? 'authed' : 'anon'} → user: ${isAuthed ? 'authed' : 'anon'}). Deleting old session & re-creating.`
+        )
+        deleteSession(sessionId).catch((err) =>
+          console.warn('[useRehabAIChat] Failed to delete old session:', err)
+        )
+        clearSession()
       }
+
+      // Always create a fresh session on mount
+      console.info('[useRehabAIChat] Creating fresh session on mount')
+      await createFreshSession()
     }
 
     initSession()
-  }, [sessionId, isAuthed, setSessionId, setSessionLoading, setError, startNewChat])
+
+    // Cleanup: clear the persisted session on unmount so a new one is
+    // created the next time the chat tab is opened.
+    return () => {
+      console.info('[useRehabAIChat] Unmounting — clearing persisted session')
+      clearSession()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthed])
 
   // Fetch chat history with React Query
   const {
@@ -101,7 +129,7 @@ export function useRehabAIChat() {
       clearError()
 
       // Determine mode based on image presence and auth
-      const mode = imageData && isAuthed ? 'image_analysis' : 'general'
+      const mode = imageData && isAuthed ? 'image_analysis' : 'chat'
 
       // Add user message
       const userMessage = {
@@ -129,13 +157,31 @@ export function useRehabAIChat() {
         // Create abort controller for cancellation
         abortControllerRef.current = new AbortController()
 
-        const response = await sendChatMessage(
-          sessionId,
-          text.trim(),
-          currentChatId,
-          mode,
-          imageData
-        )
+        // Helper to attempt sending the message
+        const attemptSend = async (sid) => {
+          return sendChatMessage(
+            sid,
+            text.trim(),
+            currentChatId,
+            mode,
+            imageData
+          )
+        }
+
+        let response
+        try {
+          response = await attemptSend(sessionId)
+        } catch (sendErr) {
+          // If 403 — session expired on server. Re-create session and retry once.
+          if (sendErr.status === 403) {
+            console.warn('[useRehabAIChat] Got 403 — session expired. Re-creating session and retrying.')
+            const newSid = await createFreshSession()
+            if (!newSid) throw new Error('Failed to re-create session after 403')
+            response = await attemptSend(newSid)
+          } else {
+            throw sendErr
+          }
+        }
 
         let newChatId = currentChatId
         let fullText = ''
@@ -202,6 +248,7 @@ export function useRehabAIChat() {
       setError,
       clearError,
       refetchChatHistory,
+      createFreshSession,
     ]
   )
 
@@ -248,10 +295,17 @@ export function useRehabAIChat() {
     updateLastMessage({ isStreaming: false })
   }, [setStreaming, updateLastMessage])
 
-  // Start a new chat
-  const handleStartNewChat = useCallback(() => {
-    startNewChat()
-  }, [startNewChat])
+  // Start a new chat — clear old session and create a fresh one
+  const handleStartNewChat = useCallback(async () => {
+    // Delete old session on backend (fire-and-forget)
+    if (sessionId) {
+      deleteSession(sessionId).catch((err) =>
+        console.warn('[useRehabAIChat] Failed to delete old session on new chat:', err)
+      )
+    }
+    clearSession()
+    await createFreshSession()
+  }, [sessionId, clearSession, createFreshSession])
 
   return {
     // State
