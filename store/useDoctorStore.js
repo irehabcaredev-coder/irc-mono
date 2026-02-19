@@ -51,7 +51,7 @@ export const useDoctorStore = create(
             authProvider: provider,
             doctorId: doctorId || `doc_${Date.now()}`,
             token: token || state.doctorAuth.token,
-            onboardingStep: onboardingStep || state.doctorAuth.onboardingStep,
+            onboardingStep: onboardingStep !== undefined ? onboardingStep : state.doctorAuth.onboardingStep,
           },
         })),
 

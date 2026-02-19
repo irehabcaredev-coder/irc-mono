@@ -147,26 +147,22 @@ export default function AuthPage() {
     try {
       const result = await verifyOTP(email, otp)
       if (result.success && result.data) {
-        const { doctorId: verifiedDoctorId, token, onboardingStep } = result.data
-        
-        // Store auth in Zustand
-        setAuth(email, 'email', verifiedDoctorId, token, onboardingStep)
-        
+        const { doctorId: verifiedDoctorId, token } = result.data
+
+        // Store auth in Zustand — force EMAIL_VERIFIED for registration flow
+        // so onboarding always starts at step 1 (Personal Information)
+        setAuth(email, 'email', verifiedDoctorId, token, 'EMAIL_VERIFIED')
+
         // Also store token in localStorage (apiClient handles this, but ensure it's set)
         if (typeof window !== 'undefined' && token) {
           localStorage.setItem('doctor_token', token)
         }
 
         setSuccess('Email verified successfully!')
-        
+
         setTimeout(() => {
-          // Route based on onboarding step
-          const auth = useDoctorStore.getState().doctorAuth
-          if (onboardingStep === 'COMPLETE') {
-            router.push('/dashboard')
-          } else {
-            router.push('/onboarding')
-          }
+          // Registration flow — always go to onboarding step 1
+          router.push('/onboarding')
         }, 500)
       }
     } catch (err) {
@@ -275,8 +271,8 @@ export default function AuthPage() {
                       ? 'Signing in...'
                       : 'Creating account...'
                     : mode === 'login'
-                    ? 'Sign In'
-                    : 'Create Account'}
+                      ? 'Sign In'
+                      : 'Create Account'}
                   {!loading && <ArrowRight className="ml-2 w-5 h-5" />}
                 </button>
               </form>
