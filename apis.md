@@ -963,9 +963,7 @@ Content-Type: application/json
   "phone": "+1234567890",
   "gender": "MALE",
   "age": 30,
-  "city": "New York",
-  "state": "New York",
-  "issues": ["Speech & Communication"]
+  "city": "New York"
 }
 
 ```
@@ -978,8 +976,6 @@ Content-Type: application/json
 - **gender**: Required, must be one of: `MALE`, `FEMALE`, `OTHER`, `PREFER_NOT_TO_SAY`
 - **age**: Required, must be between 1 and 120
 - **city**: Required, at least 2 characters
-- **state**: Required, at least 2 characters
-- **issues**: Optional, array of strings
 
 ### Response
 

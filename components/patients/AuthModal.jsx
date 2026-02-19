@@ -10,20 +10,8 @@ import { createPatientAccount, verifyPatientOTP, submitPatientPersonalInfo, logi
 import { ApiError } from '@/lib/apiClient'
 import { mapGenderToAPI } from '@/lib/dataTransformers'
 
-const cityToState = {
-  'Bangalore': 'Karnataka',
-  'Mumbai': 'Maharashtra',
-  'Delhi': 'Delhi',
-  'Hyderabad': 'Telangana',
-  'Chennai': 'Tamil Nadu',
-  'Pune': 'Maharashtra',
-  'Kolkata': 'West Bengal',
-  'Ahmedabad': 'Gujarat',
-  'Lucknow': 'Uttar Pradesh',
-  'Jaipur': 'Rajasthan',
-}
-const cities = Object.keys(cityToState)
-const issuesOptions = ['Speech \u0026 Communication', 'Hearing', 'Child-related', 'Adult / Age-related', 'Not sure']
+const cities = ['Bangalore', 'Mumbai', 'Delhi', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata', 'Ahmedabad', 'Lucknow', 'Jaipur']
+const issuesOptions = ['Speech & Communication', 'Hearing', 'Child-related', 'Adult / Age-related', 'Not sure']
 
 export default function AuthModal() {
   const {
@@ -260,7 +248,6 @@ export default function AuthModal() {
     setCity('')
     setIssues('')
     setNameError('')
-    // state is auto-derived from city, no need to reset separately
     setOtpSent(false)
     setPatientId(null)
     setMockOtp(null)
@@ -269,9 +256,6 @@ export default function AuthModal() {
 
   const handleCompleteRegistration = async () => {
     if (!name || !age || !gender || !phone || !city) return
-
-    // Derive state from city
-    const derivedState = cityToState[city] || ''
 
     // Reset errors
     setNameError('')
@@ -311,8 +295,6 @@ export default function AuthModal() {
         gender: mapGenderToAPI(gender),
         age: parseInt(age),
         city,
-        state: derivedState,
-        issues: issues ? [issues] : [],
       })
 
       if (result.success && result.data) {
@@ -333,18 +315,12 @@ export default function AuthModal() {
       if (error instanceof ApiError) {
         // Helper to determine where to show error
         const msg = error.message || ''
-
-        // Handle empty 400 response from backend (likely onboarding step issue)
-        const displayMsg = msg || (error.status === 400
-          ? 'Unable to save personal info. This may happen if onboarding was already completed or your session expired. Please try logging in instead.'
-          : 'Failed to complete registration')
-
         if (msg.toLowerCase().includes('name')) {
-          setNameError(displayMsg)
+          setNameError(msg)
         } else if (msg.toLowerCase().includes('age')) {
-          setAgeError(displayMsg)
+          setAgeError(msg)
         } else {
-          setPhoneError(displayMsg)
+          setPhoneError(msg || 'Failed to complete registration')
         }
       } else {
         setPhoneError('An error occurred. Please try again.')
@@ -972,9 +948,6 @@ export default function AuthModal() {
                         </option>
                       ))}
                     </select>
-                    {city && cityToState[city] && (
-                      <p className="text-xs text-gray-500 mt-1">State: {cityToState[city]}</p>
-                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
