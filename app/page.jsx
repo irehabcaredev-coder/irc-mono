@@ -10,7 +10,7 @@ export default function DoctorLandingPage() {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      
+
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -38,6 +38,12 @@ export default function DoctorLandingPage() {
                 >
                   See how it works
                 </a>
+              </div>
+              <div className="mt-6 text-sm text-gray-500">
+                Are you a patient?{' '}
+                <Link href="/patients?action=login" className="text-primary-blue font-medium hover:underline">
+                  Find a doctor here
+                </Link>
               </div>
             </div>
 

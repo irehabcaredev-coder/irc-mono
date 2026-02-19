@@ -1,5 +1,7 @@
 'use client'
 
+import { useRef, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import Header from '@/components/patients/Header'
 import Sidebar from '@/components/patients/Sidebar'
@@ -15,6 +17,7 @@ import { BRAND_NAME } from '@/lib/brand'
 const languages = ['English', 'Hindi', 'Assamese', 'Bengali', 'Kannada', 'Marathi', 'Tamil', 'Telugu', 'Gujarati']
 
 export default function PatientsPage() {
+  const searchParams = useSearchParams()
   const activeTab = usePatientStore((state) => state.activeTab)
   const searchQuery = usePatientStore((state) => state.searchQuery)
   const selectedConsultModes = usePatientStore((state) => state.selectedConsultModes)
@@ -23,6 +26,17 @@ export default function PatientsPage() {
   const setSearchQuery = usePatientStore((state) => state.setSearchQuery)
   const toggleConsultMode = usePatientStore((state) => state.toggleConsultMode)
   const setSelectedLanguage = usePatientStore((state) => state.setSelectedLanguage)
+  const openAuthModal = usePatientStore((state) => state.openAuthModal)
+
+  // Check for action=login query param
+  useEffect(() => {
+    if (searchParams.get('action') === 'login') {
+      openAuthModal('login')
+      // Remove the query param to prevent reopening on refresh
+      const newUrl = window.location.pathname
+      window.history.replaceState({}, '', newUrl)
+    }
+  }, [searchParams, openAuthModal])
 
   // Fetch all doctors from API
   const { data: apiDoctorsResponse, isLoading: isLoadingDoctors } = useQuery({
@@ -96,11 +110,10 @@ export default function PatientsPage() {
                     <button
                       key={mode}
                       onClick={() => toggleConsultMode(mode)}
-                      className={`px-3 py-1 text-sm font-medium rounded-full transition-colors relative ${
-                        isSelected
-                          ? 'bg-primary-blue text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      className={`px-3 py-1 text-sm font-medium rounded-full transition-colors relative ${isSelected
+                        ? 'bg-primary-blue text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                     >
                       {mode === 'CLINIC' ? 'Clinic' : mode === 'HOME_VISIT' ? 'Home Visit' : 'Online'}
                       {isSelected && (

@@ -148,17 +148,17 @@ export default function AuthPage() {
       const result = await verifyOTP(email, otp)
       if (result.success && result.data) {
         const { doctorId: verifiedDoctorId, token, onboardingStep } = result.data
-        
+
         // Store auth in Zustand
         setAuth(email, 'email', verifiedDoctorId, token, onboardingStep)
-        
+
         // Also store token in localStorage (apiClient handles this, but ensure it's set)
         if (typeof window !== 'undefined' && token) {
           localStorage.setItem('doctor_token', token)
         }
 
         setSuccess('Email verified successfully!')
-        
+
         setTimeout(() => {
           // Route based on onboarding step
           const auth = useDoctorStore.getState().doctorAuth
@@ -275,8 +275,8 @@ export default function AuthPage() {
                       ? 'Signing in...'
                       : 'Creating account...'
                     : mode === 'login'
-                    ? 'Sign In'
-                    : 'Create Account'}
+                      ? 'Sign In'
+                      : 'Create Account'}
                   {!loading && <ArrowRight className="ml-2 w-5 h-5" />}
                 </button>
               </form>
@@ -414,6 +414,15 @@ export default function AuthPage() {
                   </button>
                 </p>
               )}
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-100 text-center">
+              <p className="text-sm text-gray-500">
+                Are you a patient?{' '}
+                <a href="/patients?action=login" className="text-primary-blue font-medium hover:underline">
+                  Go to Patient Login
+                </a>
+              </p>
             </div>
           </div>
         </div>

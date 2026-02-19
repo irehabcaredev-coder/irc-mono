@@ -265,7 +265,7 @@ export default function AuthModal() {
     try {
       // Format phone number with country code
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`
-      
+
       const result = await submitPatientPersonalInfo(patientId, {
         name,
         phone: formattedPhone,
@@ -373,11 +373,10 @@ export default function AuthModal() {
                 setCity('')
                 setIssues('')
               }}
-              className={`px-3 py-1 text-sm font-medium ${
-                authMode === 'login'
-                  ? 'text-primary-blue border-b-2 border-primary-blue'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-3 py-1 text-sm font-medium ${authMode === 'login'
+                ? 'text-primary-blue border-b-2 border-primary-blue'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               Log in
             </button>
@@ -401,11 +400,10 @@ export default function AuthModal() {
                 setCity('')
                 setIssues('')
               }}
-              className={`px-3 py-1 text-sm font-medium ${
-                authMode === 'register'
-                  ? 'text-primary-blue border-b-2 border-primary-blue'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-3 py-1 text-sm font-medium ${authMode === 'register'
+                ? 'text-primary-blue border-b-2 border-primary-blue'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               Register
             </button>
@@ -434,9 +432,8 @@ export default function AuthModal() {
                     setEmailError('')
                   }}
                   placeholder="Enter your email"
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent ${
-                    emailError ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent ${emailError ? 'border-red-300' : 'border-gray-300'
+                    }`}
                 />
                 {emailError && (
                   <p className="text-xs text-accent-red mt-1">{emailError}</p>
@@ -456,9 +453,8 @@ export default function AuthModal() {
                         setPasswordError('')
                       }}
                       placeholder="Enter your password"
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent ${
-                        passwordError ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent ${passwordError ? 'border-red-300' : 'border-gray-300'
+                        }`}
                     />
                     {passwordError && (
                       <p className="text-xs text-accent-red mt-1">{passwordError}</p>
@@ -493,9 +489,8 @@ export default function AuthModal() {
                         setPasswordError('')
                       }}
                       placeholder="Enter your password"
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent ${
-                        passwordError ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent ${passwordError ? 'border-red-300' : 'border-gray-300'
+                        }`}
                     />
                     {passwordError && (
                       <p className="text-xs text-accent-red mt-1">{passwordError}</p>
@@ -712,6 +707,15 @@ export default function AuthModal() {
               </button>
             </div>
           )}
+
+          <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-500">
+              Are you a doctor?{' '}
+              <a href="/auth" className="text-primary-blue font-medium hover:underline">
+                Login here
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>
