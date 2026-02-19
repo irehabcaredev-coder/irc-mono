@@ -27,11 +27,14 @@ export default function ChatInterface() {
         isChatHistoryLoading,
         error,
         isAuthed,
+        sessionReady,
+        sessionState,
         sendMessage,
         loadChat,
         startNewChat,
         cancelStreaming,
         clearError,
+        retrySession,
     } = useRehabAIChat()
 
     const [inputText, setInputText] = useState('')
@@ -48,7 +51,7 @@ export default function ChatInterface() {
     }, [messages])
 
     const handleSendMessage = async () => {
-        if (!inputText.trim() || isStreaming || isSessionLoading) return
+        if (!inputText.trim() || isStreaming || !sessionReady) return
 
         const text = inputText
         const image = imageData
@@ -116,13 +119,33 @@ export default function ChatInterface() {
         setShowMobileHistory(false)
     }
 
-    // Loading state
-    if (isSessionLoading) {
+    // Loading / error state — never stays as infinite spinner
+    if (sessionState === 'loading' || sessionState === 'error' || sessionState === 'idle') {
+        const isError = sessionState === 'error'
         return (
             <div className="flex h-[calc(100vh-8rem)] bg-white border border-gray-200 rounded-lg overflow-hidden max-w-7xl mx-auto my-4 sm:my-8 shadow-sm items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary-blue mx-auto mb-4" />
-                    <p className="text-gray-600">Initializing chat...</p>
+                <div className="text-center max-w-sm px-4">
+                    {isError ? (
+                        <>
+                            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                                <X className="w-6 h-6 text-red-500" />
+                            </div>
+                            <p className="text-gray-900 font-medium mb-2">Unable to start chat</p>
+                            <p className="text-sm text-gray-500 mb-6">{error || 'Something went wrong while initializing the chat session.'}</p>
+                            <button
+                                onClick={retrySession}
+                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-blue text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                            >
+                                <ArrowRight className="w-4 h-4" />
+                                Retry
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <Loader2 className="w-8 h-8 animate-spin text-primary-blue mx-auto mb-4" />
+                            <p className="text-gray-600">Initializing chat...</p>
+                        </>
+                    )}
                 </div>
             </div>
         )
@@ -283,7 +306,7 @@ export default function ChatInterface() {
                                 onChange={(e) => setInputText(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 placeholder={imageData ? "Describe what you'd like to know about this image..." : "Type a message..."}
-                                disabled={isStreaming || !sessionId}
+                                disabled={isStreaming || !sessionReady}
                                 className="w-full pl-4 pr-10 sm:pr-12 py-2 sm:py-3 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-primary-blue transition-all text-sm sm:text-base disabled:bg-gray-50"
                             />
                             {isStreaming ? (
@@ -297,7 +320,7 @@ export default function ChatInterface() {
                             ) : (
                                 <button
                                     onClick={handleSendMessage}
-                                    disabled={!inputText.trim() || !sessionId}
+                                    disabled={!inputText.trim() || !sessionReady}
                                     className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 bg-primary-blue text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                 >
                                     <Send className="w-4 h-4" />

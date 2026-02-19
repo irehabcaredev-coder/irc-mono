@@ -6,6 +6,7 @@ import { useAIChatStore } from '@/store/useAIChatStore'
 import { usePatientStore } from '@/store/usePatientStore'
 import {
   createSession,
+  deleteSession,
   sendChatMessage,
   getChatHistory,
   getChatMessages,
@@ -15,6 +16,11 @@ import {
 export function useRehabAIChat() {
   const queryClient = useQueryClient()
   const abortControllerRef = useRef(null)
+  const prevIsAuthedRef = useRef(null)
+  // In-flight session promise — ensures only one createSession is ever in-flight
+  const sessionPromiseRef = useRef(null)
+  // Guard against React StrictMode double-effect
+  const initGuardRef = useRef(false)
 
   // Get auth state from patient store
   const isAuthed = usePatientStore((state) => state.isAuthed)
@@ -22,14 +28,16 @@ export function useRehabAIChat() {
   // Get AI chat state
   const {
     sessionId,
+    authAtCreation,
+    sessionState,
     currentChatId,
     messages,
-    isSessionLoading,
     isStreaming,
     isLoadingMessages,
     error,
     chatHistory: cachedChatHistory,
-    setSessionId,
+    setSessionMeta,
+    setSessionState,
     setChatHistory,
     setCurrentChatId,
     setMessages,
@@ -37,37 +45,141 @@ export function useRehabAIChat() {
     appendToLastMessage,
     updateLastMessage,
     setStreaming,
-    setSessionLoading,
     setLoadingMessages,
     setError,
     clearError,
+    clearSession,
     startNewChat,
   } = useAIChatStore()
 
-  // Initialize session on mount
-  useEffect(() => {
-    async function initSession() {
-      if (sessionId) return // Already have a session
+  // Derived booleans
+  const isSessionLoading = sessionState === 'loading'
+  const sessionReady = sessionState === 'ready' && !!sessionId
 
-      setSessionLoading(true)
-      setError(null)
+  // Helper: create a fresh session and store it (deduped via sessionPromiseRef)
+  const createAndStoreSession = useCallback(async () => {
+    // If a session creation is already in-flight, reuse that promise
+    if (sessionPromiseRef.current) {
+      console.info('[Session] Dedup — reusing in-flight session promise')
+      return sessionPromiseRef.current
+    }
+
+    const promise = (async () => {
+      try {
+        const response = await createSession()
+        setSessionMeta(
+          response.session_id,
+          isAuthed,
+          response.user_type,
+          response.reference_type
+        )
+        return response.session_id
+      } finally {
+        sessionPromiseRef.current = null
+      }
+    })()
+
+    sessionPromiseRef.current = promise
+    return promise
+  }, [isAuthed, setSessionMeta])
+
+  // ── Retry session init (exposed to UI) ──
+  const retrySession = useCallback(async () => {
+    const oldId = useAIChatStore.getState().sessionId
+    clearSession()
+    setSessionState('loading')
+    clearError()
+
+    // Best-effort cleanup of the old backend session
+    if (oldId) {
+      deleteSession(oldId).catch((e) =>
+        console.warn('[Session] Failed to delete old session during retry:', e)
+      )
+    }
+
+    try {
+      await createAndStoreSession()
+      startNewChat()
+    } catch (err) {
+      console.error('[Session] Retry failed:', err)
+      setError(
+        err.errorCode === 'AUTH_MISMATCH'
+          ? err.message
+          : 'Failed to initialize chat session. Please try again.'
+      )
+    }
+  }, [clearSession, setSessionState, clearError, createAndStoreSession, startNewChat, setError])
+
+  // ── Unified session lifecycle effect ──
+  // Handles both initial mount and auth-state changes in a single effect,
+  // eliminating the race between two separate effects.
+  useEffect(() => {
+    const isFirstRender = prevIsAuthedRef.current === null
+    const authChanged = !isFirstRender && prevIsAuthedRef.current !== isAuthed
+    prevIsAuthedRef.current = isAuthed
+
+    // Determine if we need a new session
+    const needsNewSession =
+      !sessionId ||                      // No session at all
+      authAtCreation !== isAuthed ||      // Auth state doesn't match session
+      authChanged                        // Auth just changed this render
+
+    if (!needsNewSession) {
+      // If we already have a valid session, make sure state is ready
+      if (sessionId && sessionState === 'idle') {
+        setSessionState('ready')
+      }
+      return
+    }
+
+    // StrictMode guard: skip duplicate mount effect
+    if (isFirstRender) {
+      if (initGuardRef.current) {
+        console.info('[Session] Dedup — skipping StrictMode duplicate init')
+        return
+      }
+      initGuardRef.current = true
+    }
+
+    async function ensureSession() {
+      if (sessionId) {
+        console.info('[Session] Clearing stale session — auth mismatch or change', {
+          sessionId,
+          authAtCreation,
+          currentAuth: isAuthed,
+          authChanged,
+        })
+        // Best-effort cleanup of the old backend session
+        deleteSession(sessionId).catch((e) =>
+          console.warn('[Session] Failed to delete stale session:', e)
+        )
+        clearSession()
+      }
+
+      setSessionState('loading')
 
       try {
-        const response = await createSession(isAuthed)
-        setSessionId(response.session_id)
-
-        // Initialize with welcome message
+        await createAndStoreSession()
         startNewChat()
       } catch (err) {
-        console.error('[useRehabAIChat] Failed to create session:', err)
-        setError('Failed to initialize chat session. Please refresh the page.')
-      } finally {
-        setSessionLoading(false)
+        console.error('[Session] Failed to create session:', err)
+        setError(
+          err.errorCode === 'AUTH_MISMATCH'
+            ? err.message
+            : err.errorCode === 'TIMEOUT'
+              ? 'Chat session timed out. Please try again.'
+              : 'Failed to initialize chat session. Please try again.'
+        )
       }
     }
 
-    initSession()
-  }, [sessionId, isAuthed, setSessionId, setSessionLoading, setError, startNewChat])
+    ensureSession()
+
+    // Cleanup: allow re-init on unmount (StrictMode remount)
+    return () => {
+      initGuardRef.current = false
+    }
+  }, [sessionId, authAtCreation, isAuthed, sessionState, setSessionState, setError, startNewChat, clearSession, createAndStoreSession])
 
   // Fetch chat history with React Query
   const {
@@ -81,7 +193,7 @@ export function useRehabAIChat() {
       const response = await getChatHistory(sessionId)
       return response
     },
-    enabled: !!sessionId,
+    enabled: !!sessionId && sessionState === 'ready',
     staleTime: 30 * 1000, // 30 seconds
     refetchOnWindowFocus: false,
   })
@@ -93,15 +205,16 @@ export function useRehabAIChat() {
     }
   }, [chatHistoryData, setChatHistory])
 
-  // Send message with streaming
+  // Send message with streaming — includes 401 and 403 retry logic
   const sendMessage = useCallback(
     async (text, imageData = null) => {
-      if (!sessionId || !text.trim()) return
+      // Block until session is fully ready
+      if (!sessionReady || isStreaming || !text.trim()) return
 
       clearError()
 
       // Determine mode based on image presence and auth
-      const mode = imageData && isAuthed ? 'image_analysis' : 'general'
+      const mode = imageData && isAuthed ? 'image_analysis' : 'chat'
 
       // Add user message
       const userMessage = {
@@ -125,46 +238,101 @@ export function useRehabAIChat() {
 
       setStreaming(true)
 
-      try {
-        // Create abort controller for cancellation
-        abortControllerRef.current = new AbortController()
-
-        const response = await sendChatMessage(
-          sessionId,
-          text.trim(),
-          currentChatId,
-          mode,
-          imageData
-        )
-
+      // Helper to process a streaming response
+      const processStream = async (response) => {
         let newChatId = currentChatId
         let fullText = ''
 
-        // Process streaming response
         for await (const chunk of streamResponse(response)) {
-          // Check for abort
-          if (abortControllerRef.current?.signal.aborted) {
-            break
-          }
+          if (abortControllerRef.current?.signal.aborted) break
 
-          // Handle different chunk types
           if (chunk.chat_id && !newChatId) {
             newChatId = chunk.chat_id
             setCurrentChatId(newChatId)
           }
 
           if (chunk.content || chunk.text || chunk.delta) {
-            const text = chunk.content || chunk.text || chunk.delta
-            fullText += text
-            appendToLastMessage(text)
+            const t = chunk.content || chunk.text || chunk.delta
+            fullText += t
+            appendToLastMessage(t)
           }
 
-          // Handle complete message
           if (chunk.message) {
             fullText = chunk.message
             updateLastMessage({ text: chunk.message })
           }
         }
+
+        return fullText
+      }
+
+      try {
+        abortControllerRef.current = new AbortController()
+        const signal = abortControllerRef.current.signal
+
+        let activeSessionId = sessionId
+        let response
+
+        try {
+          response = await sendChatMessage(
+            activeSessionId,
+            text.trim(),
+            currentChatId,
+            mode,
+            imageData,
+            signal
+          )
+        } catch (firstErr) {
+          // 401 = session invalid/expired → re-init session once and retry once
+          if (firstErr.status === 401) {
+            console.info('[Chat] 401 received — re-initializing session and retrying once', {
+              oldSessionId: activeSessionId,
+            })
+
+            try {
+              activeSessionId = await createAndStoreSession()
+              setCurrentChatId(null) // new session → reset chat context
+              response = await sendChatMessage(
+                activeSessionId,
+                text.trim(),
+                null, // new session → new chat
+                mode,
+                imageData,
+                signal
+              )
+            } catch (retryErr) {
+              console.error('[Chat] Retry after 401 also failed:', retryErr)
+              updateLastMessage({
+                isStreaming: false,
+                text: 'Session expired. Please refresh the page and try again.',
+                isError: true,
+              })
+              setError(retryErr.message || 'Session expired')
+              setStreaming(false)
+              abortControllerRef.current = null
+              return
+            }
+            // 403 = valid session but tier/usage limit hit → show limit message (no retry)
+          } else if (firstErr.status === 403) {
+            console.info('[Chat] 403 received — usage/tier limit reached', {
+              sessionId: activeSessionId,
+              error: firstErr.message,
+            })
+            updateLastMessage({
+              isStreaming: false,
+              text: 'You have reached your chat limit. Please try again later or sign in for more access.',
+              isError: true,
+            })
+            setError('Usage limit reached')
+            setStreaming(false)
+            abortControllerRef.current = null
+            return
+          } else {
+            throw firstErr
+          }
+        }
+
+        const fullText = await processStream(response)
 
         // Finalize message
         updateLastMessage({
@@ -175,9 +343,8 @@ export function useRehabAIChat() {
         // Refetch chat history to include new chat
         refetchChatHistory()
       } catch (err) {
-        console.error('[useRehabAIChat] Failed to send message:', err)
+        console.error('[Chat] Failed to send message:', err)
 
-        // Update AI message with error
         updateLastMessage({
           isStreaming: false,
           text: 'Sorry, I encountered an error processing your request. Please try again.',
@@ -192,8 +359,10 @@ export function useRehabAIChat() {
     },
     [
       sessionId,
+      sessionReady,
       currentChatId,
       isAuthed,
+      isStreaming,
       addMessage,
       appendToLastMessage,
       updateLastMessage,
@@ -202,6 +371,7 @@ export function useRehabAIChat() {
       setError,
       clearError,
       refetchChatHistory,
+      createAndStoreSession,
     ]
   )
 
@@ -229,7 +399,7 @@ export function useRehabAIChat() {
         setCurrentChatId(chatId)
         setMessages(transformedMessages)
       } catch (err) {
-        console.error('[useRehabAIChat] Failed to load chat:', err)
+        console.error('[Chat] Failed to load chat:', err)
         setError('Failed to load chat messages')
       } finally {
         setLoadingMessages(false)
@@ -265,6 +435,8 @@ export function useRehabAIChat() {
     isChatHistoryLoading,
     error,
     isAuthed,
+    sessionReady,
+    sessionState,
 
     // Actions
     sendMessage,
@@ -273,5 +445,6 @@ export function useRehabAIChat() {
     cancelStreaming,
     clearError,
     refetchChatHistory,
+    retrySession,
   }
 }

@@ -7,6 +7,16 @@ export const useAIChatStore = create(
       // Session ID - persisted to localStorage
       sessionId: null,
 
+      // Whether the user was authenticated when the session was created (persisted)
+      authAtCreation: false,
+
+      // Session state machine: 'idle' | 'loading' | 'ready' | 'error'
+      sessionState: 'idle',
+
+      // Backend-reported session metadata
+      sessionUserType: null,
+      sessionReferenceType: null,
+
       // Current active chat ID
       currentChatId: null,
 
@@ -17,19 +27,40 @@ export const useAIChatStore = create(
       messages: [],
 
       // Loading states
-      isSessionLoading: false,
       isStreaming: false,
       isLoadingMessages: false,
 
       // Error state
       error: null,
 
+      // Derived: is session currently loading (backward-compat)
+      get isSessionLoading() {
+        return get().sessionState === 'loading'
+      },
+
       // Actions
       setSessionId: (sessionId) => set({ sessionId }),
+
+      // Set session ID and auth context atomically, plus backend metadata
+      setSessionMeta: (sessionId, authAtCreation, userType, referenceType) =>
+        set({
+          sessionId,
+          authAtCreation,
+          sessionState: 'ready',
+          sessionUserType: userType || null,
+          sessionReferenceType: referenceType || null,
+          error: null,
+        }),
+
+      setSessionState: (sessionState) => set({ sessionState }),
 
       clearSession: () =>
         set({
           sessionId: null,
+          authAtCreation: false,
+          sessionState: 'idle',
+          sessionUserType: null,
+          sessionReferenceType: null,
           currentChatId: null,
           chatHistory: [],
           messages: [],
@@ -75,11 +106,12 @@ export const useAIChatStore = create(
 
       setStreaming: (isStreaming) => set({ isStreaming }),
 
-      setSessionLoading: (isSessionLoading) => set({ isSessionLoading }),
+      setSessionLoading: (loading) =>
+        set({ sessionState: loading ? 'loading' : get().sessionId ? 'ready' : 'idle' }),
 
       setLoadingMessages: (isLoadingMessages) => set({ isLoadingMessages }),
 
-      setError: (error) => set({ error }),
+      setError: (error) => set({ error, sessionState: error ? 'error' : get().sessionState }),
 
       clearError: () => set({ error: null }),
 
@@ -113,9 +145,10 @@ export const useAIChatStore = create(
     }),
     {
       name: 'ai-chat-store',
-      // Only persist sessionId
+      // Persist sessionId and auth context
       partialize: (state) => ({
         sessionId: state.sessionId,
+        authAtCreation: state.authAtCreation,
       }),
     }
   )
