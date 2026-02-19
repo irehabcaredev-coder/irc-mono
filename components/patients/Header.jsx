@@ -71,6 +71,13 @@ export default function Header() {
             <BrandWordmark size="lg" />
           </div>
 
+          {/* Left: Doctor Link (Desktop only) */}
+          <div className="hidden md:flex items-center absolute left-4">
+            <a href="/auth" className="text-sm text-gray-600 hover:text-primary-blue transition-colors">
+              Are you a doctor?
+            </a>
+          </div>
+
           {/* Right: City Selector and Login */}
           <div className="flex items-center space-x-3 ml-auto">
             {/* City Selector */}
