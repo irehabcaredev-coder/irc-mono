@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Video, MapPin, Calendar, Clock } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
 import { fetchPatientAppointments } from '@/lib/appointmentApi'
+import { fetchSavedDoctors } from '@/lib/patientApi'
 import Image from 'next/image'
 
 // Mock Data for "Your Doctors"
@@ -50,18 +51,28 @@ const upcomingAppointments = [
 
 
 export default function DashboardOverview() {
-    const userProfile = usePatientStore((state) => state.userProfile)
-    const userName = userProfile?.name || 'Patient'
+    const patientProfile = usePatientStore((state) => state.patientProfile)
+    const userName = patientProfile?.name || 'Patient'
 
     const [currentDate, setCurrentDate] = useState(new Date())
 
     // Fetch appointments
-    const { data: appointmentsResponse, isLoading } = useQuery({
+    const { data: appointmentsResponse, isLoading: isAptsLoading } = useQuery({
         queryKey: ['patientAppointments'],
         queryFn: () => fetchPatientAppointments(1, 100), // Fetch up to 100 appointments
         select: (data) => data?.data || [],
-        refetchInterval: 30000, // Refetch every 30 seconds
+        refetchInterval: 30000,
     })
+
+    // Fetch saved doctors
+    const { data: savedDoctorsResponse, isLoading: isSavedLoading } = useQuery({
+        queryKey: ['savedDoctors', patientProfile?.patientId],
+        queryFn: () => fetchSavedDoctors(patientProfile?.patientId),
+        enabled: !!patientProfile?.patientId,
+        select: (data) => data?.data || [],
+    })
+
+    const isLoading = isAptsLoading || isSavedLoading
 
     // Transform appointments for calendar and list
     // Transform appointments for calendar and list
@@ -80,22 +91,16 @@ export default function DashboardOverview() {
         new Date(apt.date) >= new Date()
     ).sort((a, b) => a.date - b.date), [appointments])
 
-    // Derive consulted doctors from past appointments
-    const consultedDoctors = useMemo(() => {
-        const uniqueDoctors = new Map();
-        appointments.forEach(apt => {
-            if (!uniqueDoctors.has(apt.doctorName)) {
-                uniqueDoctors.set(apt.doctorName, {
-                    id: apt.id, // Using appointment ID as placeholder, ideally use doctor ID
-                    name: apt.doctorName,
-                    specialty: apt.specialty,
-                    image: null,
-                    lastConsult: new Date(apt.date).toLocaleDateString()
-                });
-            }
-        });
-        return Array.from(uniqueDoctors.values()).slice(0, 3);
-    }, [appointments])
+    // Saved doctors for display
+    const savedDoctors = useMemo(() => {
+        return (savedDoctorsResponse || []).map(doc => ({
+            id: doc.id,
+            name: doc.name,
+            specialty: doc.specialty,
+            image: doc.profileImage,
+            experience: doc.experienceYears
+        })).slice(0, 4);
+    }, [savedDoctorsResponse])
 
 
     const daysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
@@ -155,43 +160,82 @@ export default function DashboardOverview() {
     }
 
     return (
-        <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-8">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">
-                    Welcome back, {userName}
-                </h1>
-                <p className="text-gray-600 mt-1">Here's what's happening today.</p>
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-10 animate-in fade-in duration-700">
+            {/* Header with Background Gradient */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary-blue to-blue-600 p-8 sm:p-12 text-white shadow-xl shadow-blue-200/50">
+                <div className="absolute top-0 right-0 -transtion-y-1/2 translate-x-1/2 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 transtion-y-1/2 -translate-x-1/2 w-48 h-48 bg-blue-400/20 rounded-full blur-2xl"></div>
+
+                <div className="relative z-10">
+                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+                        Welcome back, {userName}
+                    </h1>
+                    <p className="text-blue-100 mt-2 text-lg font-medium opacity-90">
+                        {upcomingAppointments.length > 0
+                            ? `You have ${upcomingAppointments.length} upcoming appointments. Keep it up!`
+                            : "Your health journey is looking good today."}
+                    </p>
+
+                    <div className="mt-8 flex flex-wrap gap-4">
+                        <button
+                            onClick={() => usePatientStore.getState().setActiveTab('FIND_SPECIALIST')}
+                            className="bg-white text-primary-blue px-6 py-2.5 rounded-full font-semibold hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center gap-2"
+                        >
+                            <Calendar className="w-4 h-4" />
+                            Book Appointment
+                        </button>
+                        <button
+                            onClick={() => usePatientStore.getState().setActiveTab('CHAT_AI')}
+                            className="bg-blue-500/30 backdrop-blur-md border border-white/30 text-white px-6 py-2.5 rounded-full font-semibold hover:bg-blue-500/40 transition-all active:scale-95 flex items-center gap-2"
+                        >
+                            <Video className="w-4 h-4" />
+                            AI Health Chat
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {/* Your Doctors Banner */}
+            {/* Saved Doctors Section */}
             <section>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    Your Doctors
-                    <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">Recently Consulted</span>
+                    Saved Doctors
+                    <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{savedDoctors.length} Saved</span>
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {consultedDoctors.length > 0 ? consultedDoctors.map((doctor) => (
-                        <div key={doctor.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all cursor-pointer group">
-                            <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center text-primary-blue font-bold text-xl group-hover:scale-105 transition-transform">
-                                {doctor.name.startsWith('Dr. ') ? doctor.name.charAt(4) : doctor.name.charAt(0)}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {savedDoctors.length > 0 ? savedDoctors.map((doctor) => (
+                        <div
+                            key={doctor.id}
+                            onClick={() => usePatientStore.getState().openProfileDrawer(doctor.id)}
+                            className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center text-center gap-3 shadow-sm hover:shadow-md transition-all cursor-pointer group border-b-4 border-b-transparent hover:border-b-primary-blue"
+                        >
+                            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center text-primary-blue font-bold text-xl group-hover:scale-110 transition-transform relative overflow-hidden">
+                                {doctor.image ? (
+                                    <Image src={doctor.image} alt={doctor.name} fill className="object-cover" />
+                                ) : (
+                                    <span>{doctor.name.startsWith('Dr. ') ? doctor.name.charAt(4) : doctor.name.charAt(0)}</span>
+                                )}
                             </div>
                             <div>
-                                <h3 className="font-semibold text-gray-900 group-hover:text-primary-blue transition-colors">{doctor.name}</h3>
-                                <p className="text-xs text-gray-500">{doctor.specialty}</p>
-                                <p className="text-[10px] text-gray-400 mt-1">Last consulted: {doctor.lastConsult}</p>
+                                <h3 className="font-semibold text-gray-900 group-hover:text-primary-blue transition-colors text-sm">{doctor.name}</h3>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">{doctor.specialty}</p>
+                                {doctor.experience && (
+                                    <p className="text-[10px] text-gray-400 mt-1">{doctor.experience} yrs experience</p>
+                                )}
                             </div>
                         </div>
                     )) : (
-                        <div className="col-span-full text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                            <p className="text-gray-500 mb-2">You haven't consulted any doctors yet.</p>
+                        <div className="col-span-full sm:col-span-2 lg:col-span-3 text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <p className="text-gray-500 text-sm">You haven't saved any doctors yet.</p>
                         </div>
                     )}
                     <div
                         onClick={() => usePatientStore.getState().setActiveTab('FIND_SPECIALIST')}
-                        className="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-500 hover:bg-gray-100 hover:text-primary-blue transition-colors cursor-pointer min-h-[88px]"
+                        className="bg-primary-blue/5 border-2 border-dashed border-primary-blue/20 rounded-xl p-4 flex flex-col items-center justify-center gap-2 text-primary-blue hover:bg-primary-blue/10 transition-colors cursor-pointer min-h-[140px]"
                     >
-                        <span className="text-sm font-medium">+ Find new doctor</span>
+                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+                            <span className="text-xl">+</span>
+                        </div>
+                        <span className="text-xs font-semibold">Find Doctors</span>
                     </div>
                 </div>
             </section>
@@ -213,18 +257,18 @@ export default function DashboardOverview() {
                     </div>
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div className="bg-white border border-gray-100 rounded-3xl shadow-xl shadow-gray-100/50 overflow-hidden transition-all hover:shadow-2xl hover:shadow-gray-200/50 group">
                     {/* Day Headers */}
-                    <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
+                    <div className="grid grid-cols-7 bg-gray-50/50 backdrop-blur-sm border-b border-gray-100">
                         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                            <div key={day} className="py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <div key={day} className="py-4 text-center text-xs font-bold text-gray-400 uppercase tracking-widest">
                                 {day}
                             </div>
                         ))}
                     </div>
 
                     {/* Calendar Grid */}
-                    <div className="grid grid-cols-7 gap-px bg-gray-200 p-px">
+                    <div className="grid grid-cols-7 gap-px bg-gray-100 p-px">
                         {renderCalendar()}
                     </div>
                 </div>
