@@ -26,10 +26,10 @@ export default function Header() {
             ) : (
               <>
                 <Link
-                  href="/#features"
-                  className="text-gray-700 hover:text-primary-blue transition-colors"
+                  href="/patients"
+                  className="text-gray-700 hover:text-primary-blue transition-colors font-medium"
                 >
-                  Features
+                  For Patients
                 </Link>
                 <Link
                   href="/auth"
