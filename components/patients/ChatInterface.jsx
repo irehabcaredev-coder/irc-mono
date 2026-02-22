@@ -349,7 +349,7 @@ export default function ChatInterface() {
                                 <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
                             </div>
                         ) : chatHistory.length === 0 ? (
-                            <p className="text-sm text-gray-400 text-center py-4">No chat history yet</p>
+                            <p className="text-sm text-gray-400 text-center py-4">No chat exists.</p>
                         ) : (
                             chatHistory.map((chat) => (
                                 <button
@@ -412,7 +412,7 @@ export default function ChatInterface() {
                                     <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
                                 </div>
                             ) : chatHistory.length === 0 ? (
-                                <p className="text-sm text-gray-400 text-center py-4">No chat history yet</p>
+                                <p className="text-sm text-gray-400 text-center py-4">No chat exists.</p>
                             ) : (
                                 chatHistory.map((chat) => (
                                     <button
