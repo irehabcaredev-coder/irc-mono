@@ -8,6 +8,7 @@ import {
   createSession,
   deleteSession,
   sendChatMessage,
+  sendChatFileMessage,
   getChatHistory,
   getChatMessages,
   streamResponse,
@@ -123,13 +124,12 @@ export function useRehabAIChat() {
 
   // Send message with streaming
   const sendMessage = useCallback(
-    async (text, imageData = null) => {
+    async (text, attachment = null) => {
       if (!sessionId || !text.trim()) return
 
       clearError()
 
-      // Determine mode based on image presence and auth
-      const mode = imageData && isAuthed ? 'image_analysis' : 'chat'
+      const isFileMode = Boolean(attachment?.file)
 
       // Add user message
       const userMessage = {
@@ -137,7 +137,13 @@ export function useRehabAIChat() {
         sender: 'user',
         text: text.trim(),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        image: imageData || null,
+        attachment: attachment
+          ? {
+            name: attachment.file?.name,
+            type: attachment.file?.type,
+            previewUrl: attachment.previewUrl || null,
+          }
+          : null,
       }
       addMessage(userMessage)
 
@@ -163,12 +169,16 @@ export function useRehabAIChat() {
 
         // Helper to attempt sending the message
         const attemptSend = async (sid) => {
+          if (isFileMode) {
+            return sendChatFileMessage(sid, text.trim(), attachment.file, activeChatId)
+          }
+
           return sendChatMessage(
             sid,
             text.trim(),
             activeChatId,
-            mode,
-            imageData
+            'chat',
+            null
           )
         }
 
@@ -187,11 +197,6 @@ export function useRehabAIChat() {
           }
         }
 
-        // First successful chat creation should refresh sidebar history immediately.
-        if (isFirstChatRequest) {
-          refetchChatHistory()
-        }
-
         let newChatId = activeChatId
         let fullText = ''
 
@@ -206,31 +211,77 @@ export function useRehabAIChat() {
           setCurrentChatId(newChatId)
         }
 
-        // Process streaming response
-        for await (const chunk of streamResponse(response)) {
-          // Check for abort
-          if (abortControllerRef.current?.signal.aborted) {
-            break
+        if (isFileMode) {
+          const contentType = response.headers.get('content-type') || ''
+          if (contentType.includes('application/json')) {
+            const data = await response.json()
+            if (!newChatId) {
+              const dataChatId = data.chat_id || data.chatId
+              if (dataChatId) {
+                newChatId = dataChatId
+                setCurrentChatId(newChatId)
+              }
+            }
+            fullText =
+              data.response ||
+              data.reply ||
+              data.output ||
+              data.answer ||
+              data.message ||
+              data.text ||
+              data.content ||
+              ''
+          } else {
+            for await (const chunk of streamResponse(response)) {
+              if (abortControllerRef.current?.signal.aborted) {
+                break
+              }
+
+              const chunkChatId = chunk.chat_id || chunk.chatId
+              if (chunkChatId && !newChatId) {
+                newChatId = chunkChatId
+                setCurrentChatId(newChatId)
+              }
+
+              if (chunk.content || chunk.text || chunk.delta) {
+                const text = chunk.content || chunk.text || chunk.delta
+                fullText += text
+                appendToLastMessage(text)
+              }
+
+              if (chunk.message) {
+                fullText = chunk.message
+                updateLastMessage({ text: chunk.message })
+              }
+            }
           }
+        } else {
+          // Process streaming response
+          for await (const chunk of streamResponse(response)) {
+            // Check for abort
+            if (abortControllerRef.current?.signal.aborted) {
+              break
+            }
 
-          // Handle different chunk types
-          const chunkChatId = chunk.chat_id || chunk.chatId
+            // Handle different chunk types
+            const chunkChatId = chunk.chat_id || chunk.chatId
 
-          if (chunkChatId && !newChatId) {
-            newChatId = chunkChatId
-            setCurrentChatId(newChatId)
-          }
+            if (chunkChatId && !newChatId) {
+              newChatId = chunkChatId
+              setCurrentChatId(newChatId)
+            }
 
-          if (chunk.content || chunk.text || chunk.delta) {
-            const text = chunk.content || chunk.text || chunk.delta
-            fullText += text
-            appendToLastMessage(text)
-          }
+            if (chunk.content || chunk.text || chunk.delta) {
+              const text = chunk.content || chunk.text || chunk.delta
+              fullText += text
+              appendToLastMessage(text)
+            }
 
-          // Handle complete message
-          if (chunk.message) {
-            fullText = chunk.message
-            updateLastMessage({ text: chunk.message })
+            // Handle complete message
+            if (chunk.message) {
+              fullText = chunk.message
+              updateLastMessage({ text: chunk.message })
+            }
           }
         }
 
@@ -240,8 +291,9 @@ export function useRehabAIChat() {
           text: fullText || 'I apologize, but I could not generate a response. Please try again.',
         })
 
-        // Keep chat history in sync for follow-up messages in existing chats.
-        if (!isFirstChatRequest) {
+        if (isFirstChatRequest && response.ok) {
+          refetchChatHistory()
+        } else if (!isFirstChatRequest) {
           refetchChatHistory()
         }
       } catch (err) {
@@ -262,8 +314,6 @@ export function useRehabAIChat() {
     },
     [
       sessionId,
-      currentChatId,
-      isAuthed,
       addMessage,
       appendToLastMessage,
       updateLastMessage,
