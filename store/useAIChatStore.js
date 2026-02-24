@@ -117,10 +117,11 @@ export const useAIChatStore = create(
     }),
     {
       name: 'ai-chat-store',
-      // Only persist sessionId
+      // Persist session and current chat context across reloads
       partialize: (state) => ({
         sessionId: state.sessionId,
         isSessionAuthed: state.isSessionAuthed,
+        currentChatId: state.currentChatId,
       }),
     }
   )

@@ -25,6 +25,7 @@ export default function AuthModal() {
     setAuthSuccess,
     clearPendingAction,
     setActiveTab,
+    setTempPatientId,
   } = usePatientStore()
 
   const [email, setEmail] = useState('')

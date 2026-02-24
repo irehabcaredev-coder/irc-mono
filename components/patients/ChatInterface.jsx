@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Paperclip, MessageSquare, Plus, Search, MoreVertical, ArrowRight, PanelRightClose, PanelRightOpen, History, X, Loader2, Image as ImageIcon } from 'lucide-react'
+import { Send, Paperclip, MessageSquare, Plus, Search, MoreVertical, ArrowRight, PanelRightClose, PanelRightOpen, History, X, Loader2, Image as ImageIcon, FileText } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import { useRehabAIChat } from '@/hooks/useRehabAIChat'
 
 function formatChatDate(dateString) {
@@ -37,8 +38,9 @@ export default function ChatInterface() {
     const [inputText, setInputText] = useState('')
     const [showHistory, setShowHistory] = useState(true) // Desktop sidebar state
     const [showMobileHistory, setShowMobileHistory] = useState(false) // Mobile overlay state
-    const [imageData, setImageData] = useState(null) // Base64 image data
-    const [imagePreview, setImagePreview] = useState(null) // Preview URL
+    const [attachedFile, setAttachedFile] = useState(null)
+    const [attachmentPreview, setAttachmentPreview] = useState(null)
+    const [attachmentType, setAttachmentType] = useState(null)
     const [isCreatingNewChat, setIsCreatingNewChat] = useState(false) // New chat creation state
     const messagesEndRef = useRef(null)
     const fileInputRef = useRef(null)
@@ -52,13 +54,14 @@ export default function ChatInterface() {
         if (!inputText.trim() || isStreaming || isSessionLoading) return
 
         const text = inputText
-        const image = imageData
+        const attachment = attachedFile ? { file: attachedFile, previewUrl: attachmentPreview, type: attachmentType } : null
 
         setInputText('')
-        setImageData(null)
-        setImagePreview(null)
+        setAttachedFile(null)
+        setAttachmentPreview(null)
+        setAttachmentType(null)
 
-        await sendMessage(text, image)
+        await sendMessage(text, attachment)
     }
 
     const handleKeyDown = (e) => {
@@ -72,38 +75,47 @@ export default function ChatInterface() {
         const file = e.target.files?.[0]
         if (!file) return
 
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            alert('Please select an image file')
+        // Supported types per API: jpg, jpeg, png, pdf
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf']
+        if (!allowedTypes.includes(file.type)) {
+            alert('Please select a JPG, PNG, or PDF file')
+            e.target.value = ''
             return
         }
+
+        const isImage = file.type.startsWith('image/')
+        const isPdf = file.type === 'application/pdf'
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            alert('Image must be less than 5MB')
+            alert('File must be less than 5MB')
+            e.target.value = ''
             return
         }
 
-        // Create preview URL
-        setImagePreview(URL.createObjectURL(file))
-
-        // Convert to base64
-        const reader = new FileReader()
-        reader.onload = () => {
-            const base64 = reader.result.split(',')[1]
-            setImageData(base64)
+        if (attachmentPreview) {
+            URL.revokeObjectURL(attachmentPreview)
         }
-        reader.readAsDataURL(file)
+
+        setAttachedFile(file)
+        setAttachmentType(file.type)
+
+        if (isImage) {
+            setAttachmentPreview(URL.createObjectURL(file))
+        } else {
+            setAttachmentPreview(null)
+        }
 
         // Reset input
         e.target.value = ''
     }
 
-    const removeImage = () => {
-        setImageData(null)
-        if (imagePreview) {
-            URL.revokeObjectURL(imagePreview)
-            setImagePreview(null)
+    const removeAttachment = () => {
+        setAttachedFile(null)
+        setAttachmentType(null)
+        if (attachmentPreview) {
+            URL.revokeObjectURL(attachmentPreview)
+            setAttachmentPreview(null)
         }
     }
 
@@ -199,14 +211,21 @@ export default function ChatInterface() {
                             {messages.map((msg) => (
                                 <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                                     <div className={`max-w-[85%] sm:max-w-[70%] ${msg.sender === 'user' ? 'order-1' : 'order-2'}`}>
-                                        {/* Image attachment */}
-                                        {msg.image && (
+                                        {/* Attachment */}
+                                        {msg.attachment && (
                                             <div className="mb-2">
-                                                <img
-                                                    src={`data:image/jpeg;base64,${msg.image}`}
-                                                    alt="Attached"
-                                                    className="max-w-full max-h-48 rounded-lg"
-                                                />
+                                                {msg.attachment.type?.startsWith('image/') && msg.attachment.previewUrl ? (
+                                                    <img
+                                                        src={msg.attachment.previewUrl}
+                                                        alt="Attached"
+                                                        className="max-w-full max-h-48 rounded-lg"
+                                                    />
+                                                ) : (
+                                                    <div className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+                                                        <FileText className="h-4 w-4 text-gray-500" />
+                                                        <span className="max-w-[220px] truncate">{msg.attachment.name || 'Attached file'}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                         <div
@@ -217,13 +236,36 @@ export default function ChatInterface() {
                                                     : 'bg-white border border-gray-100 text-gray-700 rounded-tl-none'
                                                 }`}
                                         >
-                                            {msg.text || (msg.isStreaming && (
+                                            {msg.isStreaming && !msg.text ? (
                                                 <span className="inline-flex items-center gap-1">
                                                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                                                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                                                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                                                 </span>
-                                            ))}
+                                            ) : msg.sender === 'ai' && msg.text ? (
+                                                <ReactMarkdown
+                                                    components={{
+                                                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-1">{children}</h1>,
+                                                        h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3">{children}</h2>,
+                                                        h3: ({ children }) => <h3 className="text-sm font-bold mb-1 mt-3">{children}</h3>,
+                                                        p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                                                        ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+                                                        ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+                                                        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                                                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                                        em: ({ children }) => <em className="italic">{children}</em>,
+                                                        hr: () => <hr className="my-3 border-gray-200" />,
+                                                        blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 my-2">{children}</blockquote>,
+                                                        code: ({ inline, children }) => inline
+                                                            ? <code className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-xs font-mono">{children}</code>
+                                                            : <pre className="bg-gray-100 text-gray-800 p-3 rounded-lg text-xs font-mono overflow-x-auto my-2"><code>{children}</code></pre>,
+                                                    }}
+                                                >
+                                                    {msg.text}
+                                                </ReactMarkdown>
+                                            ) : (
+                                                msg.text
+                                            )}
                                         </div>
                                         <p className={`text-xs text-gray-400 mt-1.5 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
                                             {msg.time}
@@ -236,22 +278,35 @@ export default function ChatInterface() {
                     )}
                 </div>
 
-                {/* Image Preview */}
-                {imagePreview && (
+                {/* Attachment Preview */}
+                {(attachmentPreview || attachedFile) && (
                     <div className="px-4 pt-2 bg-white border-t border-gray-100">
-                        <div className="relative inline-block">
-                            <img
-                                src={imagePreview}
-                                alt="Preview"
-                                className="h-20 rounded-lg border border-gray-200"
-                            />
-                            <button
-                                onClick={removeImage}
-                                className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 hover:bg-gray-700"
-                            >
-                                <X className="w-3 h-3" />
-                            </button>
-                        </div>
+                        {attachmentPreview ? (
+                            <div className="relative inline-block">
+                                <img
+                                    src={attachmentPreview}
+                                    alt="Preview"
+                                    className="h-20 rounded-lg border border-gray-200"
+                                />
+                                <button
+                                    onClick={removeAttachment}
+                                    className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1 hover:bg-gray-700"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="relative inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+                                <FileText className="h-4 w-4 text-gray-500" />
+                                <span className="max-w-[220px] truncate">{attachedFile?.name || 'Attached file'}</span>
+                                <button
+                                    onClick={removeAttachment}
+                                    className="ml-2 rounded-full bg-gray-800 text-white p-1 hover:bg-gray-700"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -264,7 +319,7 @@ export default function ChatInterface() {
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept="image/*"
+                                    accept="image/jpeg,image/png,application/pdf"
                                     onChange={handleFileSelect}
                                     className="hidden"
                                 />
@@ -272,10 +327,14 @@ export default function ChatInterface() {
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={isStreaming}
                                     className="p-2 sm:p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors disabled:opacity-50"
-                                    title="Attach image for analysis"
+                                    title="Attach image or PDF for analysis"
                                 >
-                                    {imageData ? (
-                                        <ImageIcon className="w-5 h-5 text-primary-blue" />
+                                    {attachedFile ? (
+                                        attachmentType?.startsWith('image/') ? (
+                                            <ImageIcon className="w-5 h-5 text-primary-blue" />
+                                        ) : (
+                                            <FileText className="w-5 h-5 text-primary-blue" />
+                                        )
                                     ) : (
                                         <Paperclip className="w-5 h-5" />
                                     )}
@@ -288,7 +347,7 @@ export default function ChatInterface() {
                                 value={inputText}
                                 onChange={(e) => setInputText(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder={imageData ? "Describe what you'd like to know about this image..." : "Type a message..."}
+                                placeholder={attachedFile ? "Describe what you'd like to know about this file..." : "Type a message..."}
                                 disabled={isStreaming || !sessionId}
                                 className="w-full pl-4 pr-10 sm:pr-12 py-2 sm:py-3 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-primary-blue transition-all text-sm sm:text-base disabled:bg-gray-50"
                             />
@@ -349,7 +408,7 @@ export default function ChatInterface() {
                                 <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
                             </div>
                         ) : chatHistory.length === 0 ? (
-                            <p className="text-sm text-gray-400 text-center py-4">No chat history yet</p>
+                            <p className="text-sm text-gray-400 text-center py-4">No chat exists.</p>
                         ) : (
                             chatHistory.map((chat) => (
                                 <button
@@ -412,7 +471,7 @@ export default function ChatInterface() {
                                     <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
                                 </div>
                             ) : chatHistory.length === 0 ? (
-                                <p className="text-sm text-gray-400 text-center py-4">No chat history yet</p>
+                                <p className="text-sm text-gray-400 text-center py-4">No chat exists.</p>
                             ) : (
                                 chatHistory.map((chat) => (
                                     <button

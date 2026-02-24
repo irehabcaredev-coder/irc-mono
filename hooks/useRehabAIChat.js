@@ -8,6 +8,7 @@ import {
   createSession,
   deleteSession,
   sendChatMessage,
+  sendChatFileMessage,
   getChatHistory,
   getChatMessages,
   streamResponse,
@@ -66,8 +67,7 @@ export function useRehabAIChat() {
     }
   }, [isAuthed, setSessionId, setSessionLoading, setError, startNewChat])
 
-  // Initialize session on mount; always create a fresh session.
-  // On unmount, clear the persisted session so a new one is created next time.
+  // Initialize session on mount; reuse existing sessionId when possible.
   useEffect(() => {
     async function initSession() {
       // Auth state mismatch — delete old session on backend first
@@ -81,19 +81,20 @@ export function useRehabAIChat() {
         clearSession()
       }
 
-      // Always create a fresh session on mount
-      console.info('[useRehabAIChat] Creating fresh session on mount')
+      if (sessionId) {
+        console.info('[useRehabAIChat] Reusing existing session on mount')
+        if (messages.length === 0 && !currentChatId) {
+          startNewChat()
+        }
+        return
+      }
+
+      console.info('[useRehabAIChat] Creating new session on mount')
       await createFreshSession()
     }
 
     initSession()
 
-    // Cleanup: clear the persisted session on unmount so a new one is
-    // created the next time the chat tab is opened.
-    return () => {
-      console.info('[useRehabAIChat] Unmounting — clearing persisted session')
-      clearSession()
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed])
 
@@ -116,20 +117,19 @@ export function useRehabAIChat() {
 
   // Update cached chat history when data changes
   useEffect(() => {
-    if (chatHistoryData?.chats) {
+    if (Array.isArray(chatHistoryData?.chats)) {
       setChatHistory(chatHistoryData.chats)
     }
   }, [chatHistoryData, setChatHistory])
 
   // Send message with streaming
   const sendMessage = useCallback(
-    async (text, imageData = null) => {
+    async (text, attachment = null) => {
       if (!sessionId || !text.trim()) return
 
       clearError()
 
-      // Determine mode based on image presence and auth
-      const mode = imageData && isAuthed ? 'image_analysis' : 'chat'
+      const isFileMode = Boolean(attachment?.file)
 
       // Add user message
       const userMessage = {
@@ -137,7 +137,13 @@ export function useRehabAIChat() {
         sender: 'user',
         text: text.trim(),
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        image: imageData || null,
+        attachment: attachment
+          ? {
+            name: attachment.file?.name,
+            type: attachment.file?.type,
+            previewUrl: attachment.previewUrl || null,
+          }
+          : null,
       }
       addMessage(userMessage)
 
@@ -154,17 +160,25 @@ export function useRehabAIChat() {
       setStreaming(true)
 
       try {
+        // Read latest chat ID at send time to avoid stale-closure edge cases.
+        const activeChatId = useAIChatStore.getState().currentChatId
+        const isFirstChatRequest = !activeChatId
+
         // Create abort controller for cancellation
         abortControllerRef.current = new AbortController()
 
         // Helper to attempt sending the message
         const attemptSend = async (sid) => {
+          if (isFileMode) {
+            return sendChatFileMessage(sid, text.trim(), attachment.file, activeChatId, abortControllerRef.current?.signal)
+          }
+
           return sendChatMessage(
             sid,
             text.trim(),
-            currentChatId,
-            mode,
-            imageData
+            activeChatId,
+            'chat',
+            null
           )
         }
 
@@ -172,43 +186,91 @@ export function useRehabAIChat() {
         try {
           response = await attemptSend(sessionId)
         } catch (sendErr) {
-          // If 403 — session expired on server. Re-create session and retry once.
-          if (sendErr.status === 403) {
-            console.warn('[useRehabAIChat] Got 403 — session expired. Re-creating session and retrying.')
-            const newSid = await createFreshSession()
-            if (!newSid) throw new Error('Failed to re-create session after 403')
-            response = await attemptSend(newSid)
+          if (isFileMode) {
+            // File endpoint: 401 = session expired → re-create and retry; 403 = usage limit hit
+            if (sendErr.status === 401) {
+              console.warn('[useRehabAIChat] Got 401 on file upload — session expired. Re-creating session and retrying.')
+              const newSid = await createFreshSession()
+              if (!newSid) throw new Error('Failed to re-create session after 401')
+              response = await attemptSend(newSid)
+            } else if (sendErr.status === 403) {
+              throw new Error('File analysis limit reached (100 per session). Please start a new chat session.')
+            } else {
+              throw sendErr
+            }
           } else {
-            throw sendErr
+            // Regular chat: 403 = session expired → re-create and retry
+            if (sendErr.status === 403) {
+              console.warn('[useRehabAIChat] Got 403 — session expired. Re-creating session and retrying.')
+              const newSid = await createFreshSession()
+              if (!newSid) throw new Error('Failed to re-create session after 403')
+              response = await attemptSend(newSid)
+            } else {
+              throw sendErr
+            }
           }
         }
 
-        let newChatId = currentChatId
+        let newChatId = activeChatId
         let fullText = ''
 
-        // Process streaming response
-        for await (const chunk of streamResponse(response)) {
-          // Check for abort
-          if (abortControllerRef.current?.signal.aborted) {
-            break
-          }
+        // Some backends return chat id in response headers instead of stream chunks.
+        const headerChatId =
+          response.headers.get('x-chat-id') ||
+          response.headers.get('chat-id') ||
+          response.headers.get('chat_id')
 
-          // Handle different chunk types
-          if (chunk.chat_id && !newChatId) {
-            newChatId = chunk.chat_id
-            setCurrentChatId(newChatId)
-          }
+        if (headerChatId && !newChatId) {
+          newChatId = headerChatId
+          setCurrentChatId(newChatId)
+        }
 
-          if (chunk.content || chunk.text || chunk.delta) {
-            const text = chunk.content || chunk.text || chunk.delta
-            fullText += text
-            appendToLastMessage(text)
+        if (isFileMode) {
+          // API spec: response is always a streaming plain-text body.
+          // X-Chat-Id header (captured above) carries the conversation ID.
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          try {
+            while (true) {
+              if (abortControllerRef.current?.signal.aborted) break
+              const { done, value } = await reader.read()
+              if (done) break
+              const chunkText = decoder.decode(value, { stream: true })
+              if (chunkText) {
+                fullText += chunkText
+                appendToLastMessage(chunkText)
+              }
+            }
+          } finally {
+            reader.releaseLock()
           }
+        } else {
+          // Process streaming response
+          for await (const chunk of streamResponse(response)) {
+            // Check for abort
+            if (abortControllerRef.current?.signal.aborted) {
+              break
+            }
 
-          // Handle complete message
-          if (chunk.message) {
-            fullText = chunk.message
-            updateLastMessage({ text: chunk.message })
+            // Handle different chunk types
+            const chunkChatId = chunk.chat_id || chunk.chatId
+
+            if (chunkChatId && !newChatId) {
+              newChatId = chunkChatId
+              setCurrentChatId(newChatId)
+            }
+
+            if (chunk.content || chunk.text || chunk.delta) {
+              const text = chunk.content || chunk.text || chunk.delta
+              fullText += text
+              appendToLastMessage(text)
+            }
+
+            // Handle complete message
+            if (chunk.message) {
+              fullText = chunk.message
+              updateLastMessage({ text: chunk.message })
+            }
           }
         }
 
@@ -218,8 +280,11 @@ export function useRehabAIChat() {
           text: fullText || 'I apologize, but I could not generate a response. Please try again.',
         })
 
-        // Refetch chat history to include new chat
-        refetchChatHistory()
+        if (isFirstChatRequest && response.ok) {
+          refetchChatHistory()
+        } else if (!isFirstChatRequest) {
+          refetchChatHistory()
+        }
       } catch (err) {
         console.error('[useRehabAIChat] Failed to send message:', err)
 
@@ -238,8 +303,6 @@ export function useRehabAIChat() {
     },
     [
       sessionId,
-      currentChatId,
-      isAuthed,
       addMessage,
       appendToLastMessage,
       updateLastMessage,
@@ -262,16 +325,78 @@ export function useRehabAIChat() {
 
       try {
         const response = await getChatMessages(sessionId, chatId)
+        const sourceMessages = Array.isArray(response?.messages) ? response.messages : []
 
-        // Transform messages to our format
-        const transformedMessages = response.messages.map((msg, index) => ({
-          id: `${chatId}-${index}`,
-          sender: msg.role === 'assistant' ? 'ai' : 'user',
-          text: msg.content,
-          time: msg.timestamp
-            ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : '',
-        }))
+        // Transform backend variants into UI messages, then order oldest -> newest.
+        const normalizedMessages = sourceMessages.flatMap((msg, index) => {
+          const timeValue = msg.timestamp || msg.created_at || msg.updated_at || msg.time
+          const timestampMs = timeValue ? new Date(timeValue).getTime() : NaN
+          const formattedTime = Number.isNaN(timestampMs)
+            ? ''
+            : new Date(timestampMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+          const pairMessages = []
+          if (msg.user_message || msg.prompt || msg.question) {
+            pairMessages.push({
+              id: `${chatId}-${index}-user`,
+              sender: 'user',
+              text: msg.user_message || msg.prompt || msg.question || '',
+              time: formattedTime,
+              _ts: timestampMs,
+              _seq: index * 2,
+              _senderOrder: 0,
+            })
+          }
+          if (msg.assistant_response || msg.response || msg.answer) {
+            pairMessages.push({
+              id: `${chatId}-${index}-ai`,
+              sender: 'ai',
+              text: msg.assistant_response || msg.response || msg.answer || '',
+              time: formattedTime,
+              _ts: timestampMs,
+              _seq: index * 2 + 1,
+              _senderOrder: 1,
+            })
+          }
+          if (pairMessages.length > 0) return pairMessages
+
+          const role = String(msg.role || msg.sender || msg.type || '').toLowerCase()
+          const text = msg.content || msg.text || msg.message || ''
+          const isUserRole = ['user', 'human', 'patient', 'client'].includes(role)
+
+          return [{
+            id: `${chatId}-${index}`,
+            sender: isUserRole ? 'user' : 'ai',
+            text,
+            time: formattedTime,
+            _ts: timestampMs,
+            _seq: index,
+            _senderOrder: isUserRole ? 0 : 1,
+          }]
+        })
+
+        const hasAnyTimestamp = normalizedMessages.some((m) => !Number.isNaN(m._ts))
+        let orderedMessages = [...normalizedMessages]
+
+        if (hasAnyTimestamp) {
+          orderedMessages.sort((a, b) => {
+            const aHasTs = !Number.isNaN(a._ts)
+            const bHasTs = !Number.isNaN(b._ts)
+
+            if (aHasTs && bHasTs && a._ts !== b._ts) return a._ts - b._ts
+            if (a._seq !== b._seq) return a._seq - b._seq
+            return a._senderOrder - b._senderOrder
+          })
+        } else if (
+          orderedMessages.length >= 2 &&
+          orderedMessages[0].sender === 'ai' &&
+          orderedMessages.some((m) => m.sender === 'user')
+        ) {
+          // Fallback when backend sends newest-first without timestamps.
+          orderedMessages.reverse()
+        }
+
+        const transformedMessages = orderedMessages.map(({ _ts, _seq, _senderOrder, ...msg }) => msg)
 
         setCurrentChatId(chatId)
         setMessages(transformedMessages)
@@ -295,17 +420,10 @@ export function useRehabAIChat() {
     updateLastMessage({ isStreaming: false })
   }, [setStreaming, updateLastMessage])
 
-  // Start a new chat — clear old session and create a fresh one
+  // Start a new chat — keep the same session, just reset conversation state
   const handleStartNewChat = useCallback(async () => {
-    // Delete old session on backend (fire-and-forget)
-    if (sessionId) {
-      deleteSession(sessionId).catch((err) =>
-        console.warn('[useRehabAIChat] Failed to delete old session on new chat:', err)
-      )
-    }
-    clearSession()
-    await createFreshSession()
-  }, [sessionId, clearSession, createFreshSession])
+    startNewChat()
+  }, [startNewChat])
 
   return {
     // State
