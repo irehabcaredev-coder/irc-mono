@@ -170,7 +170,7 @@ export function useRehabAIChat() {
         // Helper to attempt sending the message
         const attemptSend = async (sid) => {
           if (isFileMode) {
-            return sendChatFileMessage(sid, text.trim(), attachment.file, activeChatId)
+            return sendChatFileMessage(sid, text.trim(), attachment.file, activeChatId, abortControllerRef.current?.signal)
           }
 
           return sendChatMessage(
@@ -186,14 +186,28 @@ export function useRehabAIChat() {
         try {
           response = await attemptSend(sessionId)
         } catch (sendErr) {
-          // If 403 — session expired on server. Re-create session and retry once.
-          if (sendErr.status === 403) {
-            console.warn('[useRehabAIChat] Got 403 — session expired. Re-creating session and retrying.')
-            const newSid = await createFreshSession()
-            if (!newSid) throw new Error('Failed to re-create session after 403')
-            response = await attemptSend(newSid)
+          if (isFileMode) {
+            // File endpoint: 401 = session expired → re-create and retry; 403 = usage limit hit
+            if (sendErr.status === 401) {
+              console.warn('[useRehabAIChat] Got 401 on file upload — session expired. Re-creating session and retrying.')
+              const newSid = await createFreshSession()
+              if (!newSid) throw new Error('Failed to re-create session after 401')
+              response = await attemptSend(newSid)
+            } else if (sendErr.status === 403) {
+              throw new Error('File analysis limit reached (100 per session). Please start a new chat session.')
+            } else {
+              throw sendErr
+            }
           } else {
-            throw sendErr
+            // Regular chat: 403 = session expired → re-create and retry
+            if (sendErr.status === 403) {
+              console.warn('[useRehabAIChat] Got 403 — session expired. Re-creating session and retrying.')
+              const newSid = await createFreshSession()
+              if (!newSid) throw new Error('Failed to re-create session after 403')
+              response = await attemptSend(newSid)
+            } else {
+              throw sendErr
+            }
           }
         }
 
@@ -212,48 +226,23 @@ export function useRehabAIChat() {
         }
 
         if (isFileMode) {
-          const contentType = response.headers.get('content-type') || ''
-          if (contentType.includes('application/json')) {
-            const data = await response.json()
-            if (!newChatId) {
-              const dataChatId = data.chat_id || data.chatId
-              if (dataChatId) {
-                newChatId = dataChatId
-                setCurrentChatId(newChatId)
+          // API spec: response is always a streaming plain-text body.
+          // X-Chat-Id header (captured above) carries the conversation ID.
+          const reader = response.body.getReader()
+          const decoder = new TextDecoder()
+          try {
+            while (true) {
+              if (abortControllerRef.current?.signal.aborted) break
+              const { done, value } = await reader.read()
+              if (done) break
+              const chunkText = decoder.decode(value, { stream: true })
+              if (chunkText) {
+                fullText += chunkText
+                appendToLastMessage(chunkText)
               }
             }
-            fullText =
-              data.response ||
-              data.reply ||
-              data.output ||
-              data.answer ||
-              data.message ||
-              data.text ||
-              data.content ||
-              ''
-          } else {
-            for await (const chunk of streamResponse(response)) {
-              if (abortControllerRef.current?.signal.aborted) {
-                break
-              }
-
-              const chunkChatId = chunk.chat_id || chunk.chatId
-              if (chunkChatId && !newChatId) {
-                newChatId = chunkChatId
-                setCurrentChatId(newChatId)
-              }
-
-              if (chunk.content || chunk.text || chunk.delta) {
-                const text = chunk.content || chunk.text || chunk.delta
-                fullText += text
-                appendToLastMessage(text)
-              }
-
-              if (chunk.message) {
-                fullText = chunk.message
-                updateLastMessage({ text: chunk.message })
-              }
-            }
+          } finally {
+            reader.releaseLock()
           }
         } else {
           // Process streaming response

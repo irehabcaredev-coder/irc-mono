@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Send, Paperclip, MessageSquare, Plus, Search, MoreVertical, ArrowRight, PanelRightClose, PanelRightOpen, History, X, Loader2, Image as ImageIcon, FileText } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
 import { useRehabAIChat } from '@/hooks/useRehabAIChat'
 
 function formatChatDate(dateString) {
@@ -74,15 +75,16 @@ export default function ChatInterface() {
         const file = e.target.files?.[0]
         if (!file) return
 
-        const isImage = file.type.startsWith('image/')
-        const isPdf = file.type === 'application/pdf'
-
-        // Validate file type
-        if (!isImage && !isPdf) {
-            alert('Please select an image or PDF file')
+        // Supported types per API: jpg, jpeg, png, pdf
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf']
+        if (!allowedTypes.includes(file.type)) {
+            alert('Please select a JPG, PNG, or PDF file')
             e.target.value = ''
             return
         }
+
+        const isImage = file.type.startsWith('image/')
+        const isPdf = file.type === 'application/pdf'
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
@@ -234,13 +236,36 @@ export default function ChatInterface() {
                                                     : 'bg-white border border-gray-100 text-gray-700 rounded-tl-none'
                                                 }`}
                                         >
-                                            {msg.text || (msg.isStreaming && (
+                                            {msg.isStreaming && !msg.text ? (
                                                 <span className="inline-flex items-center gap-1">
                                                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                                                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                                                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                                                 </span>
-                                            ))}
+                                            ) : msg.sender === 'ai' && msg.text ? (
+                                                <ReactMarkdown
+                                                    components={{
+                                                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-1">{children}</h1>,
+                                                        h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3">{children}</h2>,
+                                                        h3: ({ children }) => <h3 className="text-sm font-bold mb-1 mt-3">{children}</h3>,
+                                                        p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                                                        ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+                                                        ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+                                                        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                                                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                                        em: ({ children }) => <em className="italic">{children}</em>,
+                                                        hr: () => <hr className="my-3 border-gray-200" />,
+                                                        blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 my-2">{children}</blockquote>,
+                                                        code: ({ inline, children }) => inline
+                                                            ? <code className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-xs font-mono">{children}</code>
+                                                            : <pre className="bg-gray-100 text-gray-800 p-3 rounded-lg text-xs font-mono overflow-x-auto my-2"><code>{children}</code></pre>,
+                                                    }}
+                                                >
+                                                    {msg.text}
+                                                </ReactMarkdown>
+                                            ) : (
+                                                msg.text
+                                            )}
                                         </div>
                                         <p className={`text-xs text-gray-400 mt-1.5 ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>
                                             {msg.time}
@@ -294,7 +319,7 @@ export default function ChatInterface() {
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept="image/*,application/pdf"
+                                    accept="image/jpeg,image/png,application/pdf"
                                     onChange={handleFileSelect}
                                     className="hidden"
                                 />
