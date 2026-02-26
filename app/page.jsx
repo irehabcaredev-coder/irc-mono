@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { UserPlus, Stethoscope, MessageSquare, Calendar, Users, Activity, Video, Search, ArrowRight } from 'lucide-react'
 import Header from '@/components/doctor/Header'
 import BrandWordmark from '@/components/BrandWordmark'
+import LandingFooter from '@/components/LandingFooter'
 
 export default function LandingPage() {
   return (
@@ -332,27 +333,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Modern Footer */}
-      <footer className="bg-gray-900 border-t border-gray-800 text-gray-400 py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-col items-center text-center">
-          <BrandWordmark size="lg" variant="dark" className="mb-6 opacity-90 hover:opacity-100 transition-opacity" />
-          <p className="text-gray-500 max-w-xl mb-8 leading-relaxed">
-            Empowering audiology care through modern digital solutions. Connecting the right patients with the right specialists for a seamless healthcare experience.
-          </p>
-          <div className="flex items-center justify-center gap-8 mb-12">
-            <Link href="/patients" className="text-sm font-medium hover:text-white transition-colors">For Patients</Link>
-            <span className="text-gray-700">•</span>
-            <Link href="/auth" className="text-sm font-medium hover:text-white transition-colors">For Doctors</Link>
-          </div>
-          <div className="border-t border-gray-800/60 w-full pt-8 text-sm text-gray-500 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div>© {new Date().getFullYear()} gocare. All rights reserved.</div>
-            <div className="flex gap-6">
-              <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <LandingFooter />
     </div>
   )
 }
