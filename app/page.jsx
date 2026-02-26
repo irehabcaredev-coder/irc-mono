@@ -48,38 +48,16 @@ export default function LandingPage() {
               <div className="absolute -inset-4 bg-gradient-to-tr from-blue-100 to-blue-50 rounded-3xl transform rotate-3 scale-105 opacity-50 z-0"></div>
               <div className="absolute -inset-4 bg-gradient-to-tl from-cyan-100 to-transparent rounded-3xl transform -rotate-3 scale-105 opacity-50 z-0"></div>
 
-              <div className="relative z-10 rounded-2xl overflow-hidden shadow-2xl glassmorphism border border-white/20 bg-white/50 p-2 transform transition-transform hover:scale-[1.02] duration-500">
-                <div className="rounded-xl overflow-hidden bg-gray-100 relative w-full h-[400px]">
-                  <Image
-                    src="/hero.png"
-                    alt="Audiology Healthcare Connect"
-                    fill
-                    className="object-cover"
-                    priority
-                  />
-                </div>
+              <div className="relative z-10 rounded-2xl overflow-hidden shadow-2xl w-full h-[400px]">
+                <Image
+                  src="/hero.png"
+                  alt="Audiology Healthcare Connect"
+                  fill
+                  className="object-cover"
+                  priority
+                />
               </div>
 
-              {/* Floating badges */}
-              <div className="absolute -left-8 top-12 bg-white/90 backdrop-blur-sm p-4 rounded-xl shadow-xl border border-gray-100 items-center gap-3 hidden md:flex z-20 hover:scale-105 transition-transform cursor-default">
-                <div className="bg-green-100 p-2 rounded-lg text-green-600">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium tracking-wide">Next Available</p>
-                  <p className="text-sm font-bold text-gray-900">Today, 2:00 PM</p>
-                </div>
-              </div>
-
-              <div className="absolute -right-8 bottom-12 bg-white/90 backdrop-blur-sm p-4 rounded-xl shadow-xl border border-gray-100 items-center gap-3 hidden md:flex z-20 hover:scale-105 transition-transform cursor-default">
-                <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
-                  <Activity className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium tracking-wide">Patient Leads</p>
-                  <p className="text-sm font-bold text-gray-900">+24 This Week</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
