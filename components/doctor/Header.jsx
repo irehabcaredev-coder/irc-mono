@@ -16,28 +16,13 @@ export default function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center space-x-8">
-            {doctorAuth.isAuthed ? (
+            {doctorAuth.isAuthed && (
               <Link
                 href="/dashboard"
                 className="text-gray-700 hover:text-primary-blue transition-colors"
               >
                 Dashboard
               </Link>
-            ) : (
-              <>
-                <Link
-                  href="/patients"
-                  className="text-gray-700 hover:text-primary-blue transition-colors font-medium"
-                >
-                  For Patients
-                </Link>
-                <Link
-                  href="/auth"
-                  className="px-4 py-2 bg-primary-blue text-white rounded-lg hover:bg-[#155a7a] transition-colors"
-                >
-                  Join Now
-                </Link>
-              </>
             )}
           </nav>
         </div>
