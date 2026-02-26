@@ -8,7 +8,7 @@ import { fetchDoctorProfile } from '@/lib/doctorApi'
 import { transformApiProfileToUI } from '@/lib/dataTransformers'
 import { fetchLeadEvents } from '@/lib/doctorApi'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
-import FeedbackButton from '@/components/doctor/FeedbackButton'
+
 import { Eye, Heart, MessageCircle, Phone, TrendingUp, Calendar } from 'lucide-react'
 import ScheduleMeetingModal from '@/components/doctor/ScheduleMeetingModal'
 
@@ -23,7 +23,7 @@ function DashboardContent() {
   const setOnboarded = useDoctorStore((state) => state.setOnboarded)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
-  
+
   // Meeting Modal State
   const [meetingModalOpen, setMeetingModalOpen] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState({ id: null, name: '' })
@@ -115,8 +115,8 @@ function DashboardContent() {
   })
 
   // Normalize data (handle both array and paginated object)
-  const apiLeadEvents = Array.isArray(apiLeadEventsData) 
-    ? apiLeadEventsData 
+  const apiLeadEvents = Array.isArray(apiLeadEventsData)
+    ? apiLeadEventsData
     : (apiLeadEventsData.leads || apiLeadEventsData.data || [])
 
   // Transform API data to UI format
@@ -219,7 +219,7 @@ function DashboardContent() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <FeedbackButton />
+
       <div className="lg:ml-64 min-h-screen">
         <div className="p-4 sm:p-6 lg:p-8 pt-4 sm:pt-6 lg:pt-8">
           <div className="mb-6 sm:mb-8">
@@ -330,10 +330,10 @@ function DashboardContent() {
                             })
                             setMeetingModalOpen(true)
                           }}
-                           className="flex items-center space-x-1 px-3 py-1 bg-primary-blue/10 hover:bg-primary-blue/20 text-primary-blue rounded-md text-xs font-medium transition-colors"
+                          className="flex items-center space-x-1 px-3 py-1 bg-primary-blue/10 hover:bg-primary-blue/20 text-primary-blue rounded-md text-xs font-medium transition-colors"
                         >
-                           <Calendar className="w-3 h-3" />
-                           <span>Schedule</span>
+                          <Calendar className="w-3 h-3" />
+                          <span>Schedule</span>
                         </button>
                         <div className="text-xs sm:text-sm text-gray-500">{timeAgo}</div>
                       </div>
@@ -366,10 +366,10 @@ function DashboardContent() {
         </div>
       </div>
       <ScheduleMeetingModal
-       isOpen={meetingModalOpen}
-       onClose={() => setMeetingModalOpen(false)}
-       patientId={selectedPatient.id}
-       patientName={selectedPatient.name}
+        isOpen={meetingModalOpen}
+        onClose={() => setMeetingModalOpen(false)}
+        patientId={selectedPatient.id}
+        patientName={selectedPatient.name}
       />
     </div>
   )

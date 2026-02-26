@@ -49,12 +49,6 @@ export default function Header() {
 
         {/* Right Section: City + Auth */}
         <div className="flex items-center gap-2 sm:gap-4">
-          <Link
-            href="/"
-            className="hidden sm:block text-xs font-medium text-gray-700 hover:text-primary-blue transition-colors"
-          >
-            For Doctors
-          </Link>
 
           {/* City Selector - Hidden on Mobile */}
           <div className="relative hidden sm:block">

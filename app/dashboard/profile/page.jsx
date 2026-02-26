@@ -8,7 +8,7 @@ import { fetchDoctorProfile, updateDoctorProfile } from '@/lib/doctorApi'
 import { ApiError } from '@/lib/apiClient'
 import { transformApiProfileToUI } from '@/lib/dataTransformers'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
-import FeedbackButton from '@/components/doctor/FeedbackButton'
+
 import { Edit2, Save, X } from 'lucide-react'
 
 const genders = ['Male', 'Female', 'Other', 'Prefer not to say']
@@ -62,7 +62,7 @@ export default function ProfilePage() {
   useEffect(() => {
     // Only run auth checks after hydration
     if (!isHydrated) return
-    
+
     if (!doctorAuth.isAuthed) {
       router.push('/auth')
     } else if (doctorAuth.onboardingStep !== 'COMPLETE') {
@@ -198,7 +198,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-paper relative">
-      <FeedbackButton />
+
       <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
       <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="lg:ml-64 min-h-screen">
@@ -318,11 +318,10 @@ export default function ProfilePage() {
                           key={lang}
                           type="button"
                           onClick={() => toggleLanguage(lang)}
-                          className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg font-medium transition-colors ${
-                            basicData.languages?.includes(lang)
+                          className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg font-medium transition-colors ${basicData.languages?.includes(lang)
                               ? 'bg-primary-blue text-white'
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
+                            }`}
                         >
                           {lang}
                         </button>
@@ -460,11 +459,10 @@ export default function ProfilePage() {
                           key={day}
                           type="button"
                           onClick={() => toggleDay(day)}
-                          className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg font-medium transition-colors ${
-                            practiceData.availableDays?.includes(day)
+                          className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg font-medium transition-colors ${practiceData.availableDays?.includes(day)
                               ? 'bg-primary-blue text-white'
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
+                            }`}
                         >
                           {day}
                         </button>

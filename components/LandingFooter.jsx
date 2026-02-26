@@ -7,7 +7,7 @@ export default function LandingFooter() {
             <div className="max-w-7xl mx-auto flex flex-col items-center text-center">
                 <BrandWordmark size="lg" variant="dark" className="mb-6 opacity-90 hover:opacity-100 transition-opacity" />
                 <p className="text-gray-500 max-w-xl mb-8 leading-relaxed">
-                    Empowering audiology care through modern digital solutions. Connecting the right patients with the right specialists for a seamless healthcare experience.
+                    Empowering audiology and speech therapy care through modern digital solutions. Connecting the right patients with the right specialists for a seamless healthcare experience.
                 </p>
                 <div className="flex items-center justify-center gap-8 mb-12">
                     <Link href="/patients" className="text-sm font-medium hover:text-white transition-colors">For Patients</Link>

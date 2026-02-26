@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { getDoctorAppointments } from '@/lib/doctorApi'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
-import FeedbackButton from '@/components/doctor/FeedbackButton'
+
 import { Calendar, Clock, Video, User } from 'lucide-react'
 import Link from 'next/link'
 
@@ -22,7 +22,7 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     if (!isHydrated) return
-    
+
     if (!doctorAuth.isAuthed) {
       router.push('/auth')
     } else if (!doctorAuth.isOnboarded) {
@@ -33,11 +33,11 @@ export default function AppointmentsPage() {
   const { data: appointments = [], isLoading } = useQuery({
     queryKey: ['doctorAppointments', doctorAuth.doctorId],
     queryFn: async () => {
-        const response = await getDoctorAppointments({ page: 1, limit: 100 }) // Fetch all for now
-        // Normalize response
-        if (Array.isArray(response)) return response
-        if (response.data && Array.isArray(response.data)) return response.data
-        return []
+      const response = await getDoctorAppointments({ page: 1, limit: 100 }) // Fetch all for now
+      // Normalize response
+      if (Array.isArray(response)) return response
+      if (response.data && Array.isArray(response.data)) return response.data
+      return []
     },
     enabled: !!doctorAuth.doctorId,
   })
@@ -45,8 +45,8 @@ export default function AppointmentsPage() {
   // Helper to check if meeting is active (e.g. within 10 mins before start time or currently ongoing)
   // For now, simpler logic: just check if it's "today" or future
   const isMeetingJoinable = (startTime) => {
-      // You can add logic here to only enable button X minutes before meeting
-      return true
+    // You can add logic here to only enable button X minutes before meeting
+    return true
   }
 
   const formatDate = (dateString) => {
@@ -60,8 +60,8 @@ export default function AppointmentsPage() {
 
   const formatTime = (dateString) => {
     return new Date(dateString).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
     })
   }
 
@@ -84,91 +84,91 @@ export default function AppointmentsPage() {
     <div className="min-h-screen bg-paper relative">
       <MobileMenuButton onClick={() => setSidebarOpen(true)} isOpen={sidebarOpen} />
       <DashboardSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <FeedbackButton />
-      
+
+
       <div className="lg:ml-64 min-h-screen">
         <div className="p-4 sm:p-6 lg:p-8 pt-4 sm:pt-6 lg:pt-8">
           <div className="mb-6 sm:mb-8">
-             <div className="flex items-center justify-between">
-                <div>
-                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">My Appointments</h1>
-                     <p className="text-sm sm:text-base text-gray-600">Manage your upcoming consultations</p>
-                </div>
-                {/* <button className="bg-primary-blue text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-blue/90 transition-colors">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">My Appointments</h1>
+                <p className="text-sm sm:text-base text-gray-600">Manage your upcoming consultations</p>
+              </div>
+              {/* <button className="bg-primary-blue text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-blue/90 transition-colors">
                     Add Availability
                 </button> */}
-             </div>
+            </div>
           </div>
 
           <div className="space-y-4">
             {isLoading ? (
-               <div className="text-center py-12">
-                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue"></div>
-                   <p className="mt-4 text-gray-600">Loading appointments...</p>
-               </div>
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue"></div>
+                <p className="mt-4 text-gray-600">Loading appointments...</p>
+              </div>
             ) : appointments.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {appointments.map((appointment) => {
-                        // Determine status logic if needed (upcoming vs past)
-                        const isPast = new Date(appointment.scheduledEnd) < new Date()
-                        
-                        return (
-                            <div key={appointment.id} className={`bg-white rounded-xl border ${isPast ? 'border-gray-200 bg-gray-50' : 'border-gray-200 shadow-sm'} p-5 flex flex-col h-full`}>
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-10 h-10 bg-blue-50 text-primary-blue rounded-full flex items-center justify-center">
-                                            <Calendar className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900 line-clamp-1">{appointment.meetingName || 'Consultation'}</h3>
-                                            <div className="flex items-center text-xs text-gray-500 mt-1">
-                                                <Clock className="w-3 h-3 mr-1" />
-                                                <span>{formatTime(appointment.scheduledAt)} - {formatTime(appointment.scheduledEnd)}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {/* Status Badge */}
-                                    <span className={`px-2 py-1 rounded text-xs font-medium ${isPast ? 'bg-gray-200 text-gray-600' : 'bg-green-100 text-green-700'}`}>
-                                        {isPast ? 'Completed' : 'Upcoming'}
-                                    </span>
-                                </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {appointments.map((appointment) => {
+                  // Determine status logic if needed (upcoming vs past)
+                  const isPast = new Date(appointment.scheduledEnd) < new Date()
 
-                                <div className="border-t border-gray-100 pt-4 mt-auto">
-                                    <div className="flex items-center mb-4">
-                                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 mr-3">
-                                            <User className="w-4 h-4" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900">{appointment.patient?.name || 'Unknown Patient'}</p>
-                                            <p className="text-xs text-gray-500">{formatDate(appointment.scheduledAt)}</p>
-                                        </div>
-                                    </div>
-
-                                    {!isPast && (
-                                        <Link 
-                                            href={`/meeting/${appointment.id}`} // Use normalized appointment ID for meeting room
-                                            className="w-full flex items-center justify-center space-x-2 bg-primary-blue text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                                        >
-                                            <Video className="w-4 h-4" />
-                                            <span>Join Call</span>
-                                        </Link>
-                                    )}
-                                    {isPast && (
-                                         <button disabled className="w-full flex items-center justify-center space-x-2 bg-gray-100 text-gray-400 py-2 rounded-lg text-sm font-medium cursor-not-allowed">
-                                            <span>Ended</span>
-                                        </button>
-                                    )}
-                                </div>
+                  return (
+                    <div key={appointment.id} className={`bg-white rounded-xl border ${isPast ? 'border-gray-200 bg-gray-50' : 'border-gray-200 shadow-sm'} p-5 flex flex-col h-full`}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-50 text-primary-blue rounded-full flex items-center justify-center">
+                            <Calendar className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900 line-clamp-1">{appointment.meetingName || 'Consultation'}</h3>
+                            <div className="flex items-center text-xs text-gray-500 mt-1">
+                              <Clock className="w-3 h-3 mr-1" />
+                              <span>{formatTime(appointment.scheduledAt)} - {formatTime(appointment.scheduledEnd)}</span>
                             </div>
-                        )
-                    })}
-                </div>
+                          </div>
+                        </div>
+                        {/* Status Badge */}
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${isPast ? 'bg-gray-200 text-gray-600' : 'bg-green-100 text-green-700'}`}>
+                          {isPast ? 'Completed' : 'Upcoming'}
+                        </span>
+                      </div>
+
+                      <div className="border-t border-gray-100 pt-4 mt-auto">
+                        <div className="flex items-center mb-4">
+                          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 mr-3">
+                            <User className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{appointment.patient?.name || 'Unknown Patient'}</p>
+                            <p className="text-xs text-gray-500">{formatDate(appointment.scheduledAt)}</p>
+                          </div>
+                        </div>
+
+                        {!isPast && (
+                          <Link
+                            href={`/meeting/${appointment.id}`} // Use normalized appointment ID for meeting room
+                            className="w-full flex items-center justify-center space-x-2 bg-primary-blue text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                          >
+                            <Video className="w-4 h-4" />
+                            <span>Join Call</span>
+                          </Link>
+                        )}
+                        {isPast && (
+                          <button disabled className="w-full flex items-center justify-center space-x-2 bg-gray-100 text-gray-400 py-2 rounded-lg text-sm font-medium cursor-not-allowed">
+                            <span>Ended</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             ) : (
-                <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900">No appointments found</h3>
-                    <p className="text-gray-500 mt-2">Scheduled meetings will appear here.</p>
-                </div>
+              <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+                <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900">No appointments found</h3>
+                <p className="text-gray-500 mt-2">Scheduled meetings will appear here.</p>
+              </div>
             )}
           </div>
         </div>

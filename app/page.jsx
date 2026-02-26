@@ -22,7 +22,7 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div className="space-y-8">
               <h1 className="text-5xl lg:text-6xl font-extrabold text-gray-900 leading-[1.15] tracking-tight">
-                Get connected with <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">best of audiology doctors</span> and services.
+                Get connected with <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">best of audiologists & speech therapists</span> and services.
               </h1>
 
               <div className="flex flex-col sm:flex-row gap-5 pt-4">
@@ -51,7 +51,7 @@ export default function LandingPage() {
               <div className="relative z-10 rounded-2xl overflow-hidden shadow-2xl w-full h-[400px]">
                 <Image
                   src="/hero.png"
-                  alt="Audiology Healthcare Connect"
+                  alt="Audiology & Speech Therapy Healthcare Connect"
                   fill
                   className="object-cover"
                   priority
@@ -128,10 +128,10 @@ export default function LandingPage() {
                   What We Serve For Patients
                 </span>
                 <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-[1.15] mb-6">
-                  Your path to better hearing starts here.
+                  Your path to better hearing and speech starts here.
                 </h2>
                 <p className="text-lg text-gray-600 leading-relaxed font-medium">
-                  We empower patients with seamless tools to manage their audiology health. Get the care you need, when you need it, without the friction.
+                  We empower patients with seamless tools to manage their audiology and speech therapy needs. Get the care you need, when you need it, without the friction.
                 </p>
               </div>
 
@@ -143,8 +143,8 @@ export default function LandingPage() {
                     </div>
                   </div>
                   <div className="ml-5">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Connect with doctors</h3>
-                    <p className="text-gray-600 leading-relaxed">Find the right audiology specialists tailored to your specific needs, location, and schedule.</p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Connect with specialists</h3>
+                    <p className="text-gray-600 leading-relaxed">Find the right audiologists and speech therapists tailored to your specific needs, location, and schedule.</p>
                   </div>
                 </div>
 
@@ -202,7 +202,7 @@ export default function LandingPage() {
                   </div>
                   <div className="ml-5">
                     <h3 className="text-xl font-bold text-gray-900 mb-2">Get More Leads</h3>
-                    <p className="text-gray-600 leading-relaxed">Increase your visibility to thousands of active patients searching for audiology services in your area.</p>
+                    <p className="text-gray-600 leading-relaxed">Increase your visibility to thousands of active patients searching for audiology and speech therapy services in your area.</p>
                   </div>
                 </div>
 
