@@ -111,10 +111,11 @@ function OnboardingContent() {
   const getStepFromOnboardingStep = (onboardingStep) => {
     switch (onboardingStep) {
       case 'PERSONAL_INFO_COMPLETE':
-        return { step: 2, redirect: null }   // Move to professional info
+        return { step: 1, redirect: null }   // Land on personal info (even if backend says complete)
       case 'PROFESSIONAL_INFO_COMPLETE':
-        return { step: 3, redirect: null }   // Move to availability
+        return { step: 2, redirect: null }   // Move to professional info
       case 'AVAILABILITY_COMPLETE':
+        return { step: 3, redirect: null }   // Move to availability
       case 'PAYMENT_INFO_COMPLETE':
         return { step: 4, redirect: null }   // Move to payment info
       case 'COMPLETE':
