@@ -1,3 +1,4 @@
+'use client'
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import Header from '@/components/patients/Header'
