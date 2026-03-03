@@ -40,7 +40,6 @@ export default function DoctorCard({ doctor }) {
       openAuthModal('login', { type: 'PROFILE', doctorId: doctor.id })
       return
     }
-    addViewedDoctor(doctor.id)
     openProfileDrawer(doctor.id)
   }
 

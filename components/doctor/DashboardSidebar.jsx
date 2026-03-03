@@ -1,17 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, User, Users, Settings, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, User, Users, Settings, LogOut, Menu, X, Calendar, Bot, MessageSquare } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { useRouter } from 'next/navigation'
 import BrandWordmark from '@/components/BrandWordmark'
+import FeedbackModal from '@/components/doctor/FeedbackModal'
 
 const navItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/profile', label: 'Profile', icon: User },
   { href: '/dashboard/leads', label: 'Leads', icon: Users },
+  { href: '/dashboard/appointments', label: 'Appointments', icon: Calendar },
+  { href: '/dashboard/ai-chat', label: 'AI Assistant', icon: Bot },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -19,6 +22,7 @@ export default function DashboardSidebar({ isOpen, onClose }) {
   const pathname = usePathname()
   const router = useRouter()
   const logout = useDoctorStore((state) => state.logout)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -45,6 +49,7 @@ export default function DashboardSidebar({ isOpen, onClose }) {
           z-[100] lg:z-auto
           transform transition-transform duration-300 ease-in-out lg:transform-none
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          flex flex-col
         `}
       >
         {/* Mobile Header */}
@@ -59,7 +64,8 @@ export default function DashboardSidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        <nav className="p-4 space-y-1 pt-4 lg:pt-4 overflow-y-auto h-full lg:h-auto">
+        {/* Nav items — flex-1 so they fill available height */}
+        <nav className="p-4 space-y-1 pt-4 lg:pt-4 overflow-y-auto flex-1">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -68,22 +74,33 @@ export default function DashboardSidebar({ isOpen, onClose }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => {
-                  // Close sidebar on mobile when navigating
                   if (typeof window !== 'undefined' && window.innerWidth < 1024) {
                     onClose()
                   }
                 }}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive
+                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive
                     ? 'bg-primary-blue text-white'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <Icon className="w-5 h-5" />
                 <span className="font-medium">{item.label}</span>
               </Link>
             )
           })}
+        </nav>
+
+        {/* Bottom section: Feedback + Logout */}
+        <div className="p-4 border-t border-gray-100 space-y-1">
+          {/* Feedback button — styled as nav item */}
+          <button
+            onClick={() => setFeedbackOpen(true)}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span className="font-medium">Feedback</span>
+          </button>
+
           <button
             onClick={handleLogout}
             className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-red-50 hover:text-accent-red transition-colors"
@@ -91,8 +108,11 @@ export default function DashboardSidebar({ isOpen, onClose }) {
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Log out</span>
           </button>
-        </nav>
+        </div>
       </aside>
+
+      {/* Feedback Modal — rendered at sidebar level */}
+      <FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </>
   )
 }
@@ -105,7 +125,7 @@ export function MobileMenuButton({ onClick, isOpen = false }) {
     }
   }
 
-  if (isOpen) return null // Don't render when sidebar is open
+  if (isOpen) return null
 
   return (
     <button
@@ -118,4 +138,3 @@ export function MobileMenuButton({ onClick, isOpen = false }) {
     </button>
   )
 }
-
