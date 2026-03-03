@@ -1,21 +1,22 @@
 'use client'
 
-import { useEffect, useState,Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { fetchDoctorProfile } from '@/lib/doctorApi'
 import { transformApiProfileToUI } from '@/lib/dataTransformers'
-// import { fetchLeadEvents } from '@/lib/doctorApi' // TODO: Uncomment when API endpoint is available
+import { fetchLeadEvents } from '@/lib/doctorApi'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
-import FeedbackButton from '@/components/doctor/FeedbackButton'
-import { Eye, Heart, MessageCircle, Phone, TrendingUp } from 'lucide-react'
+
+import { Eye, Heart, MessageCircle, Phone, TrendingUp, Calendar } from 'lucide-react'
+import ScheduleMeetingModal from '@/components/doctor/ScheduleMeetingModal'
 
 function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
-  
+
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
   const setAuth = useDoctorStore((state) => state.setAuth)
   const doctorProfile = useDoctorStore((state) => state.doctorProfile)
@@ -23,13 +24,17 @@ function DashboardContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
 
+  // Meeting Modal State
+  const [meetingModalOpen, setMeetingModalOpen] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState({ id: null, name: '' })
+
   // JWT Parser (Robust for base64url)
   const parseJwt = (token) => {
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
       }).join(''));
       return JSON.parse(jsonPayload);
     } catch (e) {
@@ -65,49 +70,64 @@ function DashboardContent() {
     if (!isHydrated) return
 
     const handleAuth = () => {
-        // 1. Check for token in URL
-        if (tokenFromUrl) {
-            localStorage.setItem('doctor_token', tokenFromUrl)
-            
-            const decoded = parseJwt(tokenFromUrl)
-            if (decoded && decoded.email && decoded.doctorId) {
-                // Update store with initial auth info so useQuery can run
-                setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
-                return 
-            }
-        }
+      // 1. Check for token in URL
+      if (tokenFromUrl) {
+        localStorage.setItem('doctor_token', tokenFromUrl)
 
-        // 2. Regular auth check
-        if (!doctorAuth.isAuthed) {
-           // Double check localStorage
-           const localToken = localStorage.getItem('doctor_token')
-           if (localToken) {
-              const decoded = parseJwt(localToken)
-              if (decoded) {
-                setAuth(decoded.email, 'email', decoded.doctorId, localToken)
-                return
-              }
-           }
-           router.push('/auth')
-        } else if (doctorAuth.onboardingStep !== 'COMPLETE') {
-           // If we have a token from URL, let the profile fetch (useQuery) determine the true step
-           // instead of redirecting immediately based on potentially stale local state
-           if (!tokenFromUrl) {
-               router.push('/onboarding')
-           }
+        const decoded = parseJwt(tokenFromUrl)
+        if (decoded && decoded.email && decoded.doctorId) {
+          // Update store with initial auth info so useQuery can run
+          setAuth(decoded.email, 'google', decoded.doctorId, tokenFromUrl)
+          return
         }
+      }
+
+      // 2. Regular auth check
+      if (!doctorAuth.isAuthed) {
+        // Double check localStorage
+        const localToken = localStorage.getItem('doctor_token')
+        if (localToken) {
+          const decoded = parseJwt(localToken)
+          if (decoded) {
+            setAuth(decoded.email, 'email', decoded.doctorId, localToken)
+            return
+          }
+        }
+        router.push('/auth')
+      } else if (doctorAuth.onboardingStep !== 'COMPLETE' && !doctorAuth.isOnboarded) {
+        // If we have a token from URL, let the profile fetch (useQuery) determine the true step
+        // instead of redirecting immediately based on potentially stale local state
+        if (!tokenFromUrl) {
+          router.push('/onboarding')
+        }
+      }
     }
-    
+
     handleAuth()
   }, [isHydrated, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.onboardingStep, router, setAuth])
 
-  // TODO: Fetch lead events from API when endpoint is available
-  // const { data: leadEvents = [] } = useQuery({
-  //   queryKey: ['leadEvents', doctorAuth.doctorId],
-  //   queryFn: () => fetchLeadEvents(doctorAuth.doctorId),
-  //   enabled: !!doctorAuth.doctorId,
-  // })
-  const leadEvents = [] // Placeholder until API is available
+  // Fetch lead events from API
+  // Fetch lead events from API (Only need 5 for overview)
+  const { data: apiLeadEventsData = [] } = useQuery({
+    queryKey: ['leadEvents', doctorAuth.doctorId],
+    queryFn: () => fetchLeadEvents(doctorAuth.doctorId, { limit: 5 }),
+    enabled: !!doctorAuth.doctorId,
+  })
+
+  // Normalize data (handle both array and paginated object)
+  const apiLeadEvents = Array.isArray(apiLeadEventsData)
+    ? apiLeadEventsData
+    : (apiLeadEventsData.leads || apiLeadEventsData.data || [])
+
+  // Transform API data to UI format
+  const leadEvents = apiLeadEvents.map(event => ({
+    eventId: event.id,
+    type: event.type || 'Profile View', // Default to 'Profile View' if type is missing
+    patientId: event.patientId,
+    patientName: event.patient?.name,
+    patientCity: event.patient?.city,
+    createdAt: event.createdAt || event.viewedAt // Use createdAt or fallback to viewedAt
+  }))
 
   const recentEvents = leadEvents.slice(0, 5)
 
@@ -169,7 +189,7 @@ function DashboardContent() {
   }
 
   // Allow render if we have a token from URL to show something while syncing
-  if ((!doctorAuth.isAuthed && !tokenFromUrl) || (doctorAuth.onboardingStep !== 'COMPLETE' && !tokenFromUrl)) {
+  if ((!doctorAuth.isAuthed && !tokenFromUrl) || (doctorAuth.onboardingStep !== 'COMPLETE' && !doctorAuth.isOnboarded && !tokenFromUrl)) {
     return null
   }
 
@@ -191,15 +211,15 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-paper relative">
-      <MobileMenuButton 
-        onClick={() => setSidebarOpen(true)} 
-        isOpen={sidebarOpen} 
+      <MobileMenuButton
+        onClick={() => setSidebarOpen(true)}
+        isOpen={sidebarOpen}
       />
-      <DashboardSidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
+      <DashboardSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
-      <FeedbackButton />
+
       <div className="lg:ml-64 min-h-screen">
         <div className="p-4 sm:p-6 lg:p-8 pt-4 sm:pt-6 lg:pt-8">
           <div className="mb-6 sm:mb-8">
@@ -300,7 +320,23 @@ function DashboardContent() {
                           </div>
                         </div>
                       </div>
-                      <div className="text-xs sm:text-sm text-gray-500 sm:ml-4">{timeAgo}</div>
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:ml-4">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setSelectedPatient({
+                              id: event.patientId, // Ensure event has patientId
+                              name: event.patientName || 'Patient'
+                            })
+                            setMeetingModalOpen(true)
+                          }}
+                          className="flex items-center space-x-1 px-3 py-1 bg-primary-blue/10 hover:bg-primary-blue/20 text-primary-blue rounded-md text-xs font-medium transition-colors"
+                        >
+                          <Calendar className="w-3 h-3" />
+                          <span>Schedule</span>
+                        </button>
+                        <div className="text-xs sm:text-sm text-gray-500">{timeAgo}</div>
+                      </div>
                     </div>
                   )
                 })}
@@ -329,6 +365,12 @@ function DashboardContent() {
           </div>
         </div>
       </div>
+      <ScheduleMeetingModal
+        isOpen={meetingModalOpen}
+        onClose={() => setMeetingModalOpen(false)}
+        patientId={selectedPatient.id}
+        patientName={selectedPatient.name}
+      />
     </div>
   )
 }
@@ -336,12 +378,12 @@ function DashboardContent() {
 export default function DashboardOverview() {
   return (
     <Suspense fallback={
-       <div className="min-h-screen bg-paper flex items-center justify-center">
+      <div className="min-h-screen bg-paper flex items-center justify-center">
         <div className="text-center">
-           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
-           <p className="text-gray-600">Loading...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
         </div>
-       </div>
+      </div>
     }>
       <DashboardContent />
     </Suspense>
@@ -349,12 +391,15 @@ export default function DashboardOverview() {
 }
 
 function getTimeAgo(date) {
+  if (!date) return ''
   const now = new Date()
-  const diff = now - date
+  const eventDate = new Date(date)
+  const diff = now - eventDate
   const minutes = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days = Math.floor(diff / 86400000)
 
+  if (minutes < 1) return 'Just now'
   if (minutes < 60) return `${minutes}m ago`
   if (hours < 24) return `${hours}h ago`
   return `${days}d ago`

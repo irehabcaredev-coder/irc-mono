@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { X, Phone, MessageCircle } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
@@ -13,13 +13,20 @@ export default function DoctorProfile() {
 
   const { data: apiDoctor, isLoading } = useQuery({
     queryKey: ['doctor', selectedDoctorId],
-    queryFn: () => fetchDoctorProfile(selectedDoctorId),
+    queryFn: () => fetchDoctorProfile(selectedDoctorId, { usePatientToken: true }),
     enabled: !!selectedDoctorId && profileDrawerOpen,
   })
 
+  const lastViewedRef = useRef(null)
+
   useEffect(() => {
     if (profileDrawerOpen && selectedDoctorId && isAuthed) {
-      addViewedDoctor(selectedDoctorId)
+      if (lastViewedRef.current !== selectedDoctorId) {
+          addViewedDoctor(selectedDoctorId)
+          lastViewedRef.current = selectedDoctorId
+      }
+    } else {
+        lastViewedRef.current = null
     }
   }, [profileDrawerOpen, selectedDoctorId, isAuthed, addViewedDoctor])
 
