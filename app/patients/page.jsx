@@ -1,9 +1,7 @@
-'use client'
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import Header from '@/components/patients/Header'
 import Sidebar from '@/components/patients/Sidebar'
-import DoctorCard from '@/components/patients/DoctorCard'
 import AuthModal from '@/components/patients/AuthModal'
 import DoctorProfile from '@/components/patients/DoctorProfile'
 import DashboardOverview from '@/components/patients/DashboardOverview'

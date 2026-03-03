@@ -411,6 +411,15 @@ export default function AuthPage() {
                 </p>
               )}
             </div>
+
+            <div className="mt-6 pt-6 border-t border-gray-100 text-center">
+              <p className="text-sm text-gray-500">
+                Are you a patient?{' '}
+                <a href="/patients?action=login" className="text-primary-blue font-medium hover:underline">
+                  Go to Patient Login
+                </a>
+              </p>
+            </div>
           </div>
         </div>
       </div>

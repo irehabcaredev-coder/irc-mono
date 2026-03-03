@@ -1004,6 +1004,15 @@ export default function AuthModal() {
               )}
             </>
           )}
+
+          <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-500">
+              Are you a doctor?{' '}
+              <a href="/auth" className="text-primary-blue font-medium hover:underline">
+                Login here
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>

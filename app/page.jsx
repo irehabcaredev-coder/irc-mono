@@ -41,6 +41,12 @@ export default function LandingPage() {
                   For Doctors
                 </Link>
               </div>
+              <div className="mt-6 text-sm text-gray-500">
+                Are you a patient?{' '}
+                <Link href="/patients?action=login" className="text-primary-blue font-medium hover:underline">
+                  Find a doctor here
+                </Link>
+              </div>
             </div>
 
             <div className="relative lg:ml-10">
