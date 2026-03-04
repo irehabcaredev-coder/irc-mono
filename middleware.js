@@ -18,6 +18,6 @@ export function middleware(request) {
 export const config = {
   // Matcher ignoring _next/static, _next/image, favicon.ico, etc.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next|favicon.ico).*)',
   ],
 }
