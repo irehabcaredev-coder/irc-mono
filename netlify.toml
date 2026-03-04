@@ -1,6 +1,5 @@
 [build]
-  command = "npm run build && mkdir -p public/_next/static && cp -r .next/static/* public/_next/static/"
-  publish = "public"
+  command = "npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
@@ -9,3 +8,4 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+-priority-1-330
