@@ -1,5 +1,6 @@
 [build]
-  command = "npm run build"
+  command = "npm run build && mkdir -p public/_next/static && cp -r .next/static/* public/_next/static/"
+  publish = "public"
 
 [build.environment]
   NODE_VERSION = "20"

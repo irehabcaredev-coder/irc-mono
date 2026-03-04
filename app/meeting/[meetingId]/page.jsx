@@ -1,14 +1,16 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
+import nextDynamic from 'next/dynamic';
 import { useDoctorStore } from '@/store/useDoctorStore';
 import { usePatientStore } from '@/store/usePatientStore';
 import BrandWordmark from '@/components/BrandWordmark'; // Ensure this component is available or use simple text
 
 // Dynamically import AgoraWrapper with SSR disabled to prevent "window is not defined" error
-const AgoraWrapper = dynamic(() => import('@/components/video/AgoraVideoCall'), { 
+const AgoraWrapper = nextDynamic(() => import('@/components/video/AgoraVideoCall'), { 
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
