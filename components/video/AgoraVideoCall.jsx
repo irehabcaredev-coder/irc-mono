@@ -110,7 +110,6 @@ function VideoCall({ appId, channelName, token, uid, onLeave }) {
             {/* Local User */}
             <div className="relative rounded-3xl overflow-hidden bg-gray-900 ring-1 ring-white/10 shadow-2xl transition-all duration-300 group">
                 <LocalUser
-                    audioTrack={localMicrophoneTrack}
                     cameraOn={cameraOn}
                     micOn={micOn}
                     videoTrack={localCameraTrack}
