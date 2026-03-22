@@ -4,12 +4,11 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useDoctorStore } from '@/store/useDoctorStore'
-import { fetchDoctorProfile } from '@/lib/doctorApi'
+import { fetchDoctorProfile, fetchLeadEvents, getDoctorAppointments } from '@/lib/doctorApi'
 import { transformApiProfileToUI } from '@/lib/dataTransformers'
-import { fetchLeadEvents } from '@/lib/doctorApi'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
 
-import { Eye, Heart, MessageCircle, Phone, TrendingUp, Calendar } from 'lucide-react'
+import { Eye, Heart, MessageCircle, Phone, TrendingUp, Calendar, Video } from 'lucide-react'
 import ScheduleMeetingModal from '@/components/doctor/ScheduleMeetingModal'
 
 function DashboardContent() {
@@ -106,7 +105,20 @@ function DashboardContent() {
     handleAuth()
   }, [isHydrated, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.onboardingStep, router, setAuth])
 
-  // Fetch lead events from API
+  // Fetch upcoming appointments for the overview
+  const { data: upcomingAppointmentsData = [] } = useQuery({
+    queryKey: ['doctorUpcomingAppointments', doctorAuth.doctorId],
+    queryFn: async () => {
+      const response = await getDoctorAppointments({ page: 1, limit: 10 })
+      const list = Array.isArray(response) ? response : (response.data || [])
+      return list.filter(apt => new Date(apt.scheduledEnd || apt.scheduledAt) > new Date())
+        .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
+        .slice(0, 3)
+    },
+    enabled: !!doctorAuth.doctorId,
+    refetchInterval: 30000,
+  })
+
   // Fetch lead events from API (Only need 5 for overview)
   const { data: apiLeadEventsData = [] } = useQuery({
     queryKey: ['leadEvents', doctorAuth.doctorId],
@@ -278,6 +290,51 @@ function DashboardContent() {
               </div>
             </div>
           </div>
+
+          {/* Upcoming Calls */}
+          {upcomingAppointmentsData.length > 0 && (
+            <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm mb-6 sm:mb-8">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Upcoming Calls</h2>
+                <a href="/dashboard/appointments" className="text-primary-blue hover:underline text-xs sm:text-sm font-medium">
+                  View all
+                </a>
+              </div>
+              <div className="space-y-3">
+                {upcomingAppointmentsData.map((apt) => {
+                  const now = new Date()
+                  const startTime = new Date(apt.scheduledAt)
+                  const endTime = new Date(apt.scheduledEnd || apt.scheduledAt)
+                  const isOngoing = startTime <= now && endTime > now
+                  return (
+                    <div key={apt.id} className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${isOngoing ? 'bg-green-100' : 'bg-blue-50'}`}>
+                          <Video className={`w-4 h-4 ${isOngoing ? 'text-green-600' : 'text-primary-blue'}`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900 truncate">{apt.meetingName || 'Consultation'}</p>
+                          <p className="text-xs text-gray-500">
+                            {apt.patient?.name || 'Patient'} · {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                      <a
+                        href={`/meeting/${apt.id}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isOngoing
+                          ? 'bg-green-500 hover:bg-green-600 text-white'
+                          : 'bg-primary-blue hover:bg-blue-700 text-white'
+                        }`}
+                      >
+                        <Video className="w-3.5 h-3.5" />
+                        {isOngoing ? 'Join Now' : 'Join Call'}
+                      </a>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Recent Interest */}
           <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm mb-6 sm:mb-8">

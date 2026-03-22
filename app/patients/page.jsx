@@ -437,7 +437,11 @@ function PatientAppointments({ isAuthed, openAuthModal }) {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
         {appointments.map((apt) => {
-          const isUpcoming = new Date(apt.scheduledAt) > new Date()
+          const now = new Date()
+          const endTime = apt.scheduledEnd ? new Date(apt.scheduledEnd) : new Date(apt.scheduledAt)
+          const isJoinable = endTime > now
+          const isOngoing = new Date(apt.scheduledAt) <= now && endTime > now
+          const isUpcoming = new Date(apt.scheduledAt) > now
           const doctorName = apt.doctor?.name || 'Doctor'
           const date = new Date(apt.scheduledAt).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
           const time = new Date(apt.scheduledAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
@@ -449,9 +453,15 @@ function PatientAppointments({ isAuthed, openAuthModal }) {
                   <h4 className="font-semibold text-gray-900">{apt.meetingName || 'Consultation'}</h4>
                   <p className="text-sm text-gray-600 mt-1">with Dr. {doctorName}</p>
                 </div>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${isUpcoming ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                  {isUpcoming ? 'Upcoming' : 'Completed'}
-                </span>
+                {isOngoing ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 animate-pulse">
+                    Live Now
+                  </span>
+                ) : (
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${isUpcoming ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {isUpcoming ? 'Upcoming' : 'Completed'}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center text-sm text-gray-500 mb-6 space-x-4">
@@ -469,15 +479,18 @@ function PatientAppointments({ isAuthed, openAuthModal }) {
                 </div>
               </div>
 
-              {isUpcoming ? (
+              {isJoinable ? (
                 <button
                   onClick={() => router.push(`/meeting/${apt.id}`)}
-                  className="w-full flex items-center justify-center px-4 py-2.5 bg-primary-blue text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  className={`w-full flex items-center justify-center px-4 py-2.5 rounded-lg font-medium transition-colors ${isOngoing
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-primary-blue hover:bg-blue-700 text-white'
+                  }`}
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  Join Video Call
+                  {isOngoing ? 'Join Now' : 'Join Video Call'}
                 </button>
               ) : (
                 <button disabled className="w-full px-4 py-2.5 bg-gray-100 text-gray-400 rounded-lg font-medium cursor-not-allowed">

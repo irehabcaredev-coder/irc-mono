@@ -112,11 +112,12 @@ export default function AppointmentsPage() {
                   // Determine status logic if needed (upcoming vs past)
                   const isPast = new Date(appointment.scheduledEnd) < new Date()
 
+                  const isOngoing = !isPast && new Date(appointment.scheduledAt) <= new Date()
                   return (
-                    <div key={appointment.id} className={`bg-white rounded-xl border ${isPast ? 'border-gray-200 bg-gray-50' : 'border-gray-200 shadow-sm'} p-5 flex flex-col h-full`}>
+                    <div key={appointment.id} className={`bg-white rounded-xl border ${isPast ? 'border-gray-200 bg-gray-50' : isOngoing ? 'border-green-200 shadow-sm' : 'border-gray-200 shadow-sm'} p-5 flex flex-col h-full`}>
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-blue-50 text-primary-blue rounded-full flex items-center justify-center">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOngoing ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-primary-blue'}`}>
                             <Calendar className="w-5 h-5" />
                           </div>
                           <div>
@@ -128,9 +129,15 @@ export default function AppointmentsPage() {
                           </div>
                         </div>
                         {/* Status Badge */}
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${isPast ? 'bg-gray-200 text-gray-600' : 'bg-green-100 text-green-700'}`}>
-                          {isPast ? 'Completed' : 'Upcoming'}
-                        </span>
+                        {isOngoing ? (
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700 animate-pulse">
+                            Live Now
+                          </span>
+                        ) : (
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${isPast ? 'bg-gray-200 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>
+                            {isPast ? 'Completed' : 'Upcoming'}
+                          </span>
+                        )}
                       </div>
 
                       <div className="border-t border-gray-100 pt-4 mt-auto">
@@ -146,11 +153,14 @@ export default function AppointmentsPage() {
 
                         {!isPast && (
                           <Link
-                            href={`/meeting/${appointment.id}`} // Use normalized appointment ID for meeting room
-                            className="w-full flex items-center justify-center space-x-2 bg-primary-blue text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                            href={`/meeting/${appointment.id}`}
+                            className={`w-full flex items-center justify-center space-x-2 py-2 rounded-lg text-sm font-medium transition-colors ${isOngoing
+                              ? 'bg-green-500 hover:bg-green-600 text-white'
+                              : 'bg-primary-blue hover:bg-blue-700 text-white'
+                            }`}
                           >
                             <Video className="w-4 h-4" />
-                            <span>Join Call</span>
+                            <span>{isOngoing ? 'Join Now' : 'Join Call'}</span>
                           </Link>
                         )}
                         {isPast && (

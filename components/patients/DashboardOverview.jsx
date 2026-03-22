@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Video, MapPin, Calendar, Clock } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
 import { fetchPatientAppointments } from '@/lib/appointmentApi'
@@ -53,6 +54,7 @@ const upcomingAppointments = [
 export default function DashboardOverview() {
     const patientProfile = usePatientStore((state) => state.patientProfile)
     const userName = patientProfile?.name || 'Patient'
+    const router = useRouter()
 
     const [currentDate, setCurrentDate] = useState(new Date())
 
@@ -75,21 +77,22 @@ export default function DashboardOverview() {
     const isLoading = isAptsLoading || isSavedLoading
 
     // Transform appointments for calendar and list
-    // Transform appointments for calendar and list
     const appointments = useMemo(() => (appointmentsResponse || []).map(apt => ({
         id: apt.id,
         doctorName: apt.doctor?.name || 'Unknown Doctor',
         specialty: apt.doctor?.specialty || 'General',
         date: new Date(apt.scheduledAt),
+        scheduledEnd: apt.scheduledEnd ? new Date(apt.scheduledEnd) : null,
         time: new Date(apt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        mode: apt.meetingName ? 'ONLINE' : 'CLINIC', // Simple heuristic if mode not in API
+        mode: 'ONLINE', // All app-scheduled meetings are video calls
         status: apt.status,
     })), [appointmentsResponse])
 
-    // Filter upcoming appointments (future dates)
-    const upcomingAppointments = useMemo(() => appointments.filter(apt =>
-        new Date(apt.date) >= new Date()
-    ).sort((a, b) => a.date - b.date), [appointments])
+    // Filter upcoming/ongoing appointments (not yet ended)
+    const upcomingAppointments = useMemo(() => appointments.filter(apt => {
+        const endTime = apt.scheduledEnd || apt.date
+        return endTime >= new Date()
+    }).sort((a, b) => a.date - b.date), [appointments])
 
     // Saved doctors for display
     const savedDoctors = useMemo(() => {
@@ -141,7 +144,12 @@ export default function DashboardOverview() {
                         }`}>{i}</span>
 
                     {appointmentsForDay.map(apt => (
-                        <div key={apt.id} className="mt-1 p-1 bg-white border border-blue-100 rounded text-[10px] shadow-sm truncate border-l-2 border-l-primary-blue">
+                        <div
+                            key={apt.id}
+                            onClick={() => router.push(`/meeting/${apt.id}`)}
+                            className="mt-1 p-1 bg-white border border-blue-100 rounded text-[10px] shadow-sm truncate border-l-2 border-l-primary-blue cursor-pointer hover:bg-blue-50 transition-colors"
+                            title={`${apt.time} - ${apt.doctorName} (click to join)`}
+                        >
                             {apt.time} - {apt.doctorName}
                         </div>
                     ))}
@@ -276,7 +284,9 @@ export default function DashboardOverview() {
                 {/* List View for Mobile / Quick Access */}
                 <div className="mt-6 space-y-3">
                     <h3 className="text-sm font-medium text-gray-900">Next Up</h3>
-                    {upcomingAppointments.length > 0 ? upcomingAppointments.map(apt => (
+                    {upcomingAppointments.length > 0 ? upcomingAppointments.map(apt => {
+                        const isOngoing = apt.date <= new Date()
+                        return (
                         <div key={apt.id} className="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-4 shadow-sm">
                             <div className="bg-blue-50 text-primary-blue p-3 rounded-lg flex flex-col items-center justify-center min-w-[60px]">
                                 <span className="text-xs font-bold uppercase">{apt.date.toLocaleString('default', { month: 'short' })}</span>
@@ -288,9 +298,15 @@ export default function DashboardOverview() {
                                         <h4 className="font-semibold text-gray-900">{apt.doctorName}</h4>
                                         <p className="text-xs text-gray-500">{apt.specialty}</p>
                                     </div>
-                                    <span className={`px-2 py-1 text-[10px] font-medium rounded-full ${apt.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                        {apt.status}
-                                    </span>
+                                    {isOngoing ? (
+                                        <span className="px-2 py-1 text-[10px] font-medium rounded-full bg-green-100 text-green-700 animate-pulse">
+                                            Live
+                                        </span>
+                                    ) : (
+                                        <span className={`px-2 py-1 text-[10px] font-medium rounded-full ${apt.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                            {apt.status}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
                                     <div className="flex items-center gap-1">
@@ -298,13 +314,24 @@ export default function DashboardOverview() {
                                         {apt.time}
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        {apt.mode === 'ONLINE' ? <Video className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
-                                        {apt.mode === 'ONLINE' ? 'Video Call' : 'In-Clinic'}
+                                        <Video className="w-3.5 h-3.5" />
+                                        Video Call
                                     </div>
                                 </div>
+                                <button
+                                    onClick={() => router.push(`/meeting/${apt.id}`)}
+                                    className={`mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold transition-colors ${isOngoing
+                                        ? 'bg-green-500 hover:bg-green-600 text-white'
+                                        : 'bg-primary-blue hover:bg-blue-700 text-white'
+                                    }`}
+                                >
+                                    <Video className="w-3.5 h-3.5" />
+                                    {isOngoing ? 'Join Now' : 'Join Call'}
+                                </button>
                             </div>
                         </div>
-                    )) : (
+                        )
+                    }) : (
                         <p className="text-gray-500 text-sm">No upcoming appointments.</p>
                     )}
                 </div>
