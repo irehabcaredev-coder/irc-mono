@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Award, MapPin, ArrowRight, Stethoscope } from 'lucide-react'
 import { fetchAllDoctors } from '@/lib/doctorApi'
 import { transformApiDoctorToCard } from '@/lib/dataTransformers'
+import { usePatientStore } from '@/store/usePatientStore'
 
 const SPECIALTY_LABEL = {
   BOTH: 'Audiologist & Speech Therapist',
@@ -14,6 +15,9 @@ const SPECIALTY_LABEL = {
 
 export default function BestDoctors() {
   const router = useRouter()
+  const isAuthed = usePatientStore((state) => state.isAuthed)
+  const openAuthModal = usePatientStore((state) => state.openAuthModal)
+  const openProfileDrawer = usePatientStore((state) => state.openProfileDrawer)
 
   const { data, isLoading } = useQuery({
     queryKey: ['landingTopDoctors'],
@@ -27,19 +31,25 @@ export default function BestDoctors() {
   const topDoctors = data || []
 
   const goToDoctor = (doctor) => {
-    router.push(`/patients?search=${encodeURIComponent(doctor.name)}`)
+    if (!isAuthed) {
+      openAuthModal('login', { type: 'PROFILE', doctorId: doctor.id })
+      router.push('/patients')
+      return
+    }
+    openProfileDrawer(doctor.id)
+    router.push('/patients')
   }
 
   return (
     <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-end justify-between mb-10">
+        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 mb-10">
           <div>
-            <span className="text-blue-600 font-bold tracking-wider uppercase text-sm mb-2 block flex items-center gap-2">
+            <span className="text-blue-600 font-bold tracking-wider uppercase text-xs sm:text-sm mb-2 block flex items-center gap-2">
               <span className="w-8 h-px bg-blue-600" />
               Top Rated Specialists
             </span>
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">
+            <h2 className="text-xl sm:text-2xl lg:text-4xl font-bold text-gray-900">
               Best doctors, picked by experience.
             </h2>
           </div>

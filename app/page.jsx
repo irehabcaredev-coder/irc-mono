@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Stethoscope, MapPin } from 'lucide-react'
@@ -43,19 +42,10 @@ export default function LandingPage() {
         <div className="absolute top-0 right-0 -mr-32 -mt-32 w-96 h-96 rounded-full bg-blue-100/50 blur-3xl opacity-50 z-0 pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 -ml-32 -mb-32 w-96 h-96 rounded-full bg-blue-50/50 blur-3xl opacity-50 z-0 pointer-events-none"></div>
 
-        <div className="max-w-3xl mx-auto relative z-10 text-center space-y-8">
-          <h1 className="whitespace-nowrap text-[clamp(0.95rem,4.6vw,3.25rem)] font-extrabold text-gray-900 tracking-tight">
+        <div className="max-w-2xl mx-auto relative z-10 text-center space-y-6 sm:space-y-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 tracking-tight leading-tight text-balance">
             Get the <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">expert hearing and speech care</span> you deserve
           </h1>
-
-          <div>
-            <Link
-              href="/patients"
-              className="inline-flex items-center justify-center px-10 py-4 bg-blue-600 text-white rounded-xl font-semibold text-lg hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 hover:-translate-y-0.5"
-            >
-              Find a Doctor
-            </Link>
-          </div>
 
           <form
             onSubmit={handleSearch}
