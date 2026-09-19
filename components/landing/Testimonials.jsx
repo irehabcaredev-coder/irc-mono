@@ -38,10 +38,10 @@ export default function Testimonials() {
     <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-14">
-          <span className="text-blue-600 font-bold tracking-wider uppercase text-sm mb-2 block">
+          <span className="text-blue-600 font-bold tracking-wider uppercase text-xs sm:text-sm mb-2 block">
             Testimonials
           </span>
-          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">
+          <h2 className="text-xl sm:text-2xl lg:text-4xl font-bold text-gray-900">
             Trusted by the doctors on our platform.
           </h2>
         </div>
