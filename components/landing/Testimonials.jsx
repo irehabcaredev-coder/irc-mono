@@ -4,20 +4,6 @@ import { Star, Quote } from 'lucide-react'
 
 const TESTIMONIALS = [
   {
-    name: 'Ananya Sharma',
-    role: 'Patient, Bengaluru',
-    quote:
-      "Booking a speech therapy session for my son took less than five minutes. The doctor's profile had everything I needed to decide.",
-    rating: 5,
-  },
-  {
-    name: 'Rohit Verma',
-    role: 'Patient, Delhi',
-    quote:
-      'I compared audiologists by experience and location right on the homepage. Found a specialist near me the same day.',
-    rating: 5,
-  },
-  {
     name: 'Dr. Meera Nair',
     role: 'Audiologist, Chennai',
     quote:
@@ -25,10 +11,24 @@ const TESTIMONIALS = [
     rating: 4,
   },
   {
-    name: 'Priya Iyer',
-    role: 'Patient, Pune',
+    name: 'Dr. Arjun Kapoor',
+    role: 'Speech Therapist, Bengaluru',
     quote:
-      'The AI assistant helped me understand which specialist I needed before I even searched. Super smooth experience.',
+      'Patients arrive already knowing what they need help with, so consultations are far more productive from the first minute.',
+    rating: 5,
+  },
+  {
+    name: 'Dr. Fatima Sheikh',
+    role: 'Audiologist, Hyderabad',
+    quote:
+      'Managing my schedule and follow-ups from one dashboard has saved me hours every week that I now spend with patients instead.',
+    rating: 5,
+  },
+  {
+    name: 'Dr. Rakesh Bhatt',
+    role: 'Speech Therapist, Pune',
+    quote:
+      'Teleconsultations through the platform let me support patients in nearby towns without them having to travel to my clinic.',
     rating: 5,
   },
 ]
@@ -42,7 +42,7 @@ export default function Testimonials() {
             Testimonials
           </span>
           <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">
-            Loved by patients and doctors alike.
+            Trusted by the doctors on our platform.
           </h2>
         </div>
 

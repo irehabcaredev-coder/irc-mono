@@ -24,6 +24,7 @@ function PatientsContent() {
   const searchParams = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
   const searchFromUrl = searchParams.get('search')
+  const tabFromUrl = searchParams.get('tab')
   const [isHydrated, setIsHydrated] = useState(false)
 
   const activeTab = usePatientStore((state) => state.activeTab)
@@ -32,6 +33,7 @@ function PatientsContent() {
   const selectedLanguage = usePatientStore((state) => state.selectedLanguage)
   const savedDoctorIds = usePatientStore((state) => state.savedDoctorIds)
   const setSearchQuery = usePatientStore((state) => state.setSearchQuery)
+  const setActiveTab = usePatientStore((state) => state.setActiveTab)
   const toggleConsultMode = usePatientStore((state) => state.toggleConsultMode)
   const setSelectedLanguage = usePatientStore((state) => state.setSelectedLanguage)
   const setAuthSuccess = usePatientStore((state) => state.setAuthSuccess)
@@ -45,14 +47,15 @@ function PatientsContent() {
     setIsHydrated(true)
   }, [])
 
-  // Pick up a search query passed in from the landing page hero search
+  // Pick up a search query and issue tab passed in from the landing page hero search
   useEffect(() => {
-    if (searchFromUrl) {
-      setSearchQuery(searchFromUrl)
+    if (searchFromUrl || tabFromUrl) {
+      if (searchFromUrl) setSearchQuery(searchFromUrl)
+      if (tabFromUrl) setActiveTab(tabFromUrl)
       router.replace('/patients')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchFromUrl])
+  }, [searchFromUrl, tabFromUrl])
 
   // JWT Parser
   const parseJwt = (token) => {
