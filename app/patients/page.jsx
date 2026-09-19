@@ -23,6 +23,7 @@ function PatientsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
+  const searchFromUrl = searchParams.get('search')
   const [isHydrated, setIsHydrated] = useState(false)
 
   const activeTab = usePatientStore((state) => state.activeTab)
@@ -43,6 +44,15 @@ function PatientsContent() {
   useEffect(() => {
     setIsHydrated(true)
   }, [])
+
+  // Pick up a search query passed in from the landing page hero search
+  useEffect(() => {
+    if (searchFromUrl) {
+      setSearchQuery(searchFromUrl)
+      router.replace('/patients')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchFromUrl])
 
   // JWT Parser
   const parseJwt = (token) => {
