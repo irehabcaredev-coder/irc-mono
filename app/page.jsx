@@ -2,12 +2,25 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { UserPlus, Stethoscope, MessageSquare, Calendar, Users, Activity, Video, Search, ArrowRight } from 'lucide-react'
 import Header from '@/components/doctor/Header'
 import BrandWordmark from '@/components/BrandWordmark'
 import LandingFooter from '@/components/LandingFooter'
+import BestDoctors from '@/components/landing/BestDoctors'
+import Testimonials from '@/components/landing/Testimonials'
 
 export default function LandingPage() {
+  const router = useRouter()
+  const [query, setQuery] = useState('')
+
+  const handleSearch = (e) => {
+    e.preventDefault()
+    const params = query.trim() ? `?search=${encodeURIComponent(query.trim())}` : ''
+    router.push(`/patients${params}`)
+  }
+
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
       <Header />
@@ -25,7 +38,30 @@ export default function LandingPage() {
                 Get connected with <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">best of audiologists & speech therapists</span> and services.
               </h1>
 
-              <div className="flex flex-col sm:flex-row gap-5 pt-4">
+              <form
+                onSubmit={handleSearch}
+                className="flex flex-col sm:flex-row gap-3 p-3 bg-white rounded-2xl shadow-xl shadow-gray-200/60 border border-gray-100 max-w-xl"
+              >
+                <div className="relative flex-grow">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search doctors, clinics, or a locality..."
+                    className="w-full pl-11 pr-4 py-3.5 rounded-xl text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors shrink-0"
+                >
+                  <Search className="w-5 h-5" />
+                  Search
+                </button>
+              </form>
+
+              <div className="flex flex-col sm:flex-row gap-5 pt-2">
                 <Link
                   href="/patients"
                   className="group inline-flex items-center justify-center px-8 py-4 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
@@ -41,7 +77,7 @@ export default function LandingPage() {
                   For Doctors
                 </Link>
               </div>
-              <div className="mt-6 text-sm text-gray-500">
+              <div className="mt-2 text-sm text-gray-500">
                 Are you a patient?{' '}
                 <Link href="/patients?action=login" className="text-primary-blue font-medium hover:underline">
                   Find a doctor here
@@ -68,6 +104,8 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <BestDoctors />
 
       {/* Services Sub-separator */}
       <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
@@ -316,6 +354,8 @@ export default function LandingPage() {
 
         </div>
       </section>
+
+      <Testimonials />
 
       <LandingFooter />
     </div>
