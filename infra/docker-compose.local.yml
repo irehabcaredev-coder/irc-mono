@@ -1,0 +1,56 @@
+# Local testing (macOS/Linux): api + postgres + livekit, no TLS.
+#   docker compose -f docker-compose.local.yml up --build
+# Needs apps/api/.env for the non-database variables; DATABASE_URL is overridden below.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ecare
+      POSTGRES_PASSWORD: ecare
+      POSTGRES_DB: ecare_plus
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecare -d ecare_plus"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    env_file: ../apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://ecare:ecare@db:5432/ecare_plus
+      NODE_ENV: development
+    ports: ["8000:8000"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: postgresql://ecare:ecare@db:5432/ecare_plus
+    command: ["npx", "--no-install", "prisma", "migrate", "deploy"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  livekit:
+    image: livekit/livekit-server:v1.8
+    command: ["--dev", "--bind", "0.0.0.0"]   # dev keys: devkey / secret
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
+    environment:
+      LIVEKIT_CONFIG: |
+        rtc:
+          port_range_start: 50000
+          port_range_end: 50100
+          use_external_ip: false
+
+volumes:
+  pgdata:

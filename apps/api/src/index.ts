@@ -18,6 +18,9 @@ import paymentRoutes from './payment-service/payment.routes';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Behind Caddy: trust X-Forwarded-* so secure session cookies work over TLS
+app.set('trust proxy', 1);
+
 // Session configuration (required for Passport)
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-session-secret-change-in-production',

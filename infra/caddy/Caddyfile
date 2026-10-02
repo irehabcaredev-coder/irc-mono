@@ -1,0 +1,9 @@
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy api:8000
+}
+
+{$LIVEKIT_DOMAIN} {
+	# WebSocket signalling; Caddy upgrades the connection automatically
+	reverse_proxy host.docker.internal:7880
+}
