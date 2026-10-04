@@ -144,6 +144,11 @@ model Lead {
 
     viewedAt DateTime @default(now())
 
+    // AI qualification (ai-service): how well the patient's needs match this doctor
+    aiScore       Int? // 1-10
+    aiSummary     String?
+    aiQualifiedAt DateTime?
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
@@ -189,4 +194,50 @@ model Payment {
 
     @@index([appointmentId])
     @@index([razorpayOrderId])
+}
+
+enum AiRole {
+    USER
+    ASSISTANT
+}
+
+// A chat session. Anonymous until the user signs in; userType/userId are set when a JWT was supplied.
+model AiSession {
+    id        String   @id @default(uuid())
+    userType  String? // 'doctor' | 'patient'; null = anonymous
+    userId    String?
+    createdAt DateTime @default(now())
+
+    chats AiChat[]
+
+    @@index([userType, userId])
+}
+
+model AiChat {
+    id        String    @id @default(uuid())
+    sessionId String
+    session   AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    // Denormalized from the session so signed-in users see their chats across sessions
+    userType  String?
+    userId    String?
+    title     String
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @updatedAt
+
+    messages AiMessage[]
+
+    @@index([sessionId])
+    @@index([userType, userId])
+}
+
+model AiMessage {
+    id             String   @id @default(uuid())
+    chatId         String
+    chat           AiChat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+    role           AiRole
+    content        String
+    attachmentName String? // set on user messages that carried an image/PDF (counts toward the file limit)
+    createdAt      DateTime @default(now())
+
+    @@index([chatId, createdAt])
 }

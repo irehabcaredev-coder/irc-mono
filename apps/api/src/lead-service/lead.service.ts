@@ -3,6 +3,7 @@ import prisma from '../config/prisma';
 import { AppError } from '../utils/AppError';
 import { NOT_FOUND, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
 import * as emailService from '../email-service/email.service';
+import * as aiService from '../ai-service/ai.service';
 
 export const registerProfileView = async (doctorId: string, patientId: string) => {
     try {
@@ -25,9 +26,11 @@ export const registerProfileView = async (doctorId: string, patientId: string) =
         let shouldSendEmail = true;
 
         if (!existingLead) {
-            await prisma.lead.create({
+            const newLead = await prisma.lead.create({
                 data: { doctorId, patientId, viewedAt: now }
             });
+            // Score the lead in the background; failures are logged inside and never affect the request
+            void aiService.qualifyLead(newLead.id);
             shouldSendEmail = true;
         } else {
             const lastViewed = new Date(existingLead.viewedAt);

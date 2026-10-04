@@ -2,6 +2,7 @@ import { AccessToken } from 'livekit-server-sdk';
 import { randomUUID } from 'crypto';
 import { AppointmentStatus } from '@prisma/client';
 import prisma from '../config/prisma';
+import { OptionalUser } from '../middlewares/optionalAuth';
 import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, SERVICE_UNAVAILABLE } from '../utils/httpStatusCodes';
 
@@ -9,7 +10,7 @@ const EARLY_JOIN_MS = 10 * 60 * 1000;
 const LATE_JOIN_MS = 30 * 60 * 1000;
 const TOKEN_TTL = '2h';
 
-export type MeetingUser = { id: string; type: 'doctor' | 'patient' } | null;
+type MeetingUser = OptionalUser;
 
 export class MeetingWindowError extends AppError {
     constructor(message: string, public code: 'MEETING_NOT_STARTED' | 'MEETING_ENDED', public scheduledAt: Date, public scheduledEnd: Date) {

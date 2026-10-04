@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ecare
       POSTGRES_PASSWORD: ecare
       POSTGRES_DB: ecare_plus
-    ports: ["5432:5432"]
+    ports: ["55432:5432"]   # not 5432: that port is often taken on dev machines
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ecare -d ecare_plus"]

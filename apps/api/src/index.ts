@@ -15,6 +15,7 @@ import { AppError } from './utils/AppError';
 import appointmentRoutes from './appointment-service/appointment.routes';
 import paymentRoutes from './payment-service/payment.routes';
 import meetingRoutes from './meeting-service/meeting.routes';
+import aiRoutes from './ai-service/ai.routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,9 +43,12 @@ app.use(cors({
     origin: '*', // Allow all origins in development, set specific URL in production
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
+    exposedHeaders: ['X-Chat-Id']
 }));
 
+// Image chat sends base64 in the JSON body, so /ai gets a larger limit (mounted first; the default parser then skips it)
+app.use('/ai', express.json({ limit: '8mb' }));
 app.use(express.json());
 
 // Routes
@@ -55,6 +59,7 @@ app.use('/leads', leadRoutes);
 app.use('/appointments', appointmentRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/meetings', meetingRoutes);
+app.use('/ai', aiRoutes);
 
 app.get('/', (req, res) => {
     res.send('ECare+ API is running');
