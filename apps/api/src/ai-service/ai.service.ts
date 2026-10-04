@@ -7,6 +7,7 @@ import { complete, streamCompletion, ChatMessage, ContentPart } from './openrout
 import { ALLOWED_FILE_TYPES, limits, modelFor } from './ai.config';
 import { DOCTOR_SYSTEM_PROMPT, LEAD_QUALIFICATION_PROMPT, PATIENT_SYSTEM_PROMPT } from './prompts';
 import { leadQualificationSchema } from './ai.schema';
+import { fileMatchesType } from './file-validation';
 
 const TOO_MANY_REQUESTS = 429;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -80,6 +81,7 @@ const toDataUrl = (a: Attachment) => `data:${a.mimeType};base64,${a.data.toStrin
 const attachmentPart = (input: TurnInput): ContentPart | null => {
     if (input.file) {
         if (!ALLOWED_FILE_TYPES.includes(input.file.mimeType)) throw new AppError('Only JPG, PNG or PDF files are supported', BAD_REQUEST);
+        if (!fileMatchesType(input.file.mimeType, input.file.data)) throw new AppError('File content does not match its type', BAD_REQUEST);
         return input.file.mimeType === 'application/pdf'
             ? { type: 'file', file: { filename: input.file.name, file_data: toDataUrl(input.file) } }
             : { type: 'image_url', image_url: { url: toDataUrl(input.file) } };
