@@ -8,6 +8,8 @@ import { handleGoogleAuth } from './auth.service';
 
 const router = Router();
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+// Doctors live on their own domain; fall back to the main site until DOCTORS_FRONTEND_URL is set
+const DOCTORS_FRONTEND_URL = process.env.DOCTORS_FRONTEND_URL || FRONTEND_URL;
 
 // Google OAuth Routes
 
@@ -35,7 +37,7 @@ router.get('/google/callback',
             const { token, redirectTo, user } = result;
             const userType = user.specialty ? 'doctor' : 'patient';
             
-              const redirectUrl = `${FRONTEND_URL}${redirectTo}?token=${token}&userType=${userType}&isNewUser=${result.isNewUser}&isReturningIncompleteUser=${result.isReturningIncompleteUser || false}`;
+              const redirectUrl = `${userType === 'doctor' ? DOCTORS_FRONTEND_URL : FRONTEND_URL}${redirectTo}?token=${token}&userType=${userType}&isNewUser=${result.isNewUser}&isReturningIncompleteUser=${result.isReturningIncompleteUser || false}`;
             
             res.redirect(redirectUrl);
         } else {

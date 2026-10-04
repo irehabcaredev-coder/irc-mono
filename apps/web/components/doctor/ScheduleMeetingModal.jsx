@@ -38,7 +38,9 @@ export default function ScheduleMeetingModal({ isOpen, onClose, patientId, patie
         setSuccess(true)
         // Store the meeting ID from the response to show the link
         const meetingId = response.data.id
-        setMeetingLink(`${window.location.origin}/meeting/${meetingId}`)
+        // Share the main-site address: patients sign in there, not on the doctor domain
+        const siteUrl = process.env.NEXT_PUBLIC_MAIN_URL || window.location.origin
+        setMeetingLink(`${siteUrl}/meeting/${meetingId}`)
       } else {
          setError(response?.message || 'Failed to schedule meeting')
       }
