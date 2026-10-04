@@ -12,7 +12,7 @@ export default function LandingFooter() {
                 <div className="flex items-center justify-center gap-8 mb-12">
                     <Link href="/patients" className="text-sm font-medium hover:text-white transition-colors">For Patients</Link>
                     <span className="text-gray-700">•</span>
-                    <Link href="/auth" className="text-sm font-medium hover:text-white transition-colors">For Doctors</Link>
+                    <Link href="/for-doctors" className="text-sm font-medium hover:text-white transition-colors">For Doctors</Link>
                 </div>
                 <div className="border-t border-gray-800/60 w-full pt-8 text-sm text-gray-500 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div>© {new Date().getFullYear()} gocare. All rights reserved.</div>
