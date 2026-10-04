@@ -5,6 +5,7 @@ import Header from '@/components/patients/Header'
 import Sidebar from '@/components/patients/Sidebar'
 import AuthModal from '@/components/patients/AuthModal'
 import DoctorProfile from '@/components/patients/DoctorProfile'
+import DoctorCard from '@/components/patients/DoctorCard'
 import DashboardOverview from '@/components/patients/DashboardOverview'
 import ChatInterface from '@/components/patients/ChatInterface'
 import DoctorCard from '@/components/patients/DoctorCard'
@@ -24,6 +25,8 @@ function PatientsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
+  const searchFromUrl = searchParams.get('search')
+  const tabFromUrl = searchParams.get('tab')
   const [isHydrated, setIsHydrated] = useState(false)
 
   const activeTab = usePatientStore((state) => state.activeTab)
@@ -32,6 +35,7 @@ function PatientsContent() {
   const selectedLanguage = usePatientStore((state) => state.selectedLanguage)
   const savedDoctorIds = usePatientStore((state) => state.savedDoctorIds)
   const setSearchQuery = usePatientStore((state) => state.setSearchQuery)
+  const setActiveTab = usePatientStore((state) => state.setActiveTab)
   const toggleConsultMode = usePatientStore((state) => state.toggleConsultMode)
   const setSelectedLanguage = usePatientStore((state) => state.setSelectedLanguage)
   const setAuthSuccess = usePatientStore((state) => state.setAuthSuccess)
@@ -44,6 +48,16 @@ function PatientsContent() {
   useEffect(() => {
     setIsHydrated(true)
   }, [])
+
+  // Pick up a search query and issue tab passed in from the landing page hero search
+  useEffect(() => {
+    if (searchFromUrl || tabFromUrl) {
+      if (searchFromUrl) setSearchQuery(searchFromUrl)
+      if (tabFromUrl) setActiveTab(tabFromUrl)
+      router.replace('/patients')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchFromUrl, tabFromUrl])
 
   // JWT Parser
   const parseJwt = (token) => {
