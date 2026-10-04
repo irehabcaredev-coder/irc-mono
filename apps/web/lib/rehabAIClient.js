@@ -1,16 +1,21 @@
-// Rehab AI Chat API Client
-// Separate from main apiClient.js as it uses a different base URL and auth mechanism
+// AI Chat API Client
+// Talks to the backend's /ai routes (ai-service). Kept separate from apiClient.js because chat
+// authenticates with an x-session-id header and streams its responses.
 
 function getBaseUrl() {
-  const baseUrl = process.env.NEXT_PUBLIC_REHAB_AI_ENDPOINT || ''
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_ENDPOINT ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    ''
 
   if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
     if (!baseUrl) {
-      console.warn('[Rehab AI Client] NEXT_PUBLIC_REHAB_AI_ENDPOINT is not set')
+      console.warn('[Rehab AI Client] NEXT_PUBLIC_BASE_ENDPOINT is not set')
     }
   }
 
-  return baseUrl
+  return `${baseUrl}/ai`
 }
 
 const BASE_URL = getBaseUrl()
@@ -106,17 +111,18 @@ function getPatientToken() {
 /**
  * Create a new AI chat session.
  *
- * Anonymous:     POST /api/v1/session  (no auth headers)
- * Authenticated: POST /api/v1/session  + Authorization: Bearer <jwt>
+ * Anonymous:     POST /ai/session  (no auth headers)
+ * Authenticated: POST /ai/session  + Authorization: Bearer <jwt>
  *
  * @param {boolean} isAuthenticated - true if the user is logged in
+ * @param {string} tokenKey - localStorage key of the JWT to send ('patient_token' or 'doctor_token')
  * @returns {Promise<{session_id: string}>}
  */
-export async function createSession(isAuthenticated = false) {
+export async function createSession(isAuthenticated = false, tokenKey = 'patient_token') {
   const headers = {}
 
   if (isAuthenticated) {
-    const token = getPatientToken()
+    const token = typeof window === 'undefined' ? null : localStorage.getItem(tokenKey) || null
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     } else {
@@ -124,7 +130,7 @@ export async function createSession(isAuthenticated = false) {
     }
   }
 
-  return rehabAIRequest('/api/v1/session', {
+  return rehabAIRequest('/session', {
     method: 'POST',
     headers,
   })
@@ -136,7 +142,7 @@ export async function createSession(isAuthenticated = false) {
  * @returns {Promise<void>}
  */
 export async function deleteSession(sessionId) {
-  return rehabAIRequest('/api/v1/session', {
+  return rehabAIRequest('/session', {
     method: 'DELETE',
     sessionId,
   })
@@ -145,7 +151,7 @@ export async function deleteSession(sessionId) {
 /**
  * Send a chat message and get a streaming response.
  *
- * POST /api/v1/chat
+ * POST /ai/chat
  * Headers: Content-Type: application/json, x-session-id: <session-id>
  * Body: { "prompt": "...", "mode": "chat" | "image_analysis", "chat_id?": "...", "image_data?": "..." }
  *
@@ -170,7 +176,7 @@ export async function sendChatMessage(sessionId, prompt, chatId = null, mode = '
     body.image_data = imageData
   }
 
-  return rehabAIRequest('/api/v1/chat', {
+  return rehabAIRequest('/chat', {
     method: 'POST',
     sessionId,
     stream: true,
@@ -181,7 +187,7 @@ export async function sendChatMessage(sessionId, prompt, chatId = null, mode = '
 /**
  * Send a chat message with a file attachment.
  *
- * POST /api/v1/chat/file
+ * POST /chat/file
  * Headers: x-session-id: <session-id>
  * Body (multipart/form-data): prompt, file, chat_id?
  *
@@ -216,7 +222,7 @@ export async function sendChatFileMessage(sessionId, prompt, file, chatId = null
     fetchOptions.signal = signal
   }
 
-  const response = await fetch(`${BASE_URL}/api/v1/chat/file`, fetchOptions)
+  const response = await fetch(`${BASE_URL}/chat/file`, fetchOptions)
 
   if (!response.ok) {
     let data = {}
@@ -241,7 +247,7 @@ export async function sendChatFileMessage(sessionId, prompt, file, chatId = null
  * @returns {Promise<{chats: Array<{chat_id: string, title: string, created_at: string, updated_at: string}>}>}
  */
 export async function getChatHistory(sessionId) {
-  const data = await rehabAIRequest('/api/v1/chat-history', {
+  const data = await rehabAIRequest('/chat-history', {
     method: 'GET',
     sessionId,
   })
@@ -268,7 +274,7 @@ export async function getChatMessages(sessionId, chatId, page = 1, pageSize = 50
     page_size: String(pageSize),
   })
 
-  const data = await rehabAIRequest(`/api/v1/chat-history/${chatId}?${params}`, {
+  const data = await rehabAIRequest(`/chat-history/${chatId}?${params}`, {
     method: 'GET',
     sessionId,
   })

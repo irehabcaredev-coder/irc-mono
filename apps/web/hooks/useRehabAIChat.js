@@ -200,8 +200,8 @@ export function useRehabAIChat() {
             }
           } else {
             // Regular chat: 403 = session expired → re-create and retry
-            if (sendErr.status === 403) {
-              console.warn('[useRehabAIChat] Got 403 — session expired. Re-creating session and retrying.')
+            if (sendErr.status === 401 || sendErr.status === 403) {
+              console.warn('[useRehabAIChat] Session expired. Re-creating session and retrying.')
               const newSid = await createFreshSession()
               if (!newSid) throw new Error('Failed to re-create session after 403')
               response = await attemptSend(newSid)

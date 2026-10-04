@@ -15,15 +15,6 @@ import {
 } from '@/lib/rehabAIClient'
 
 /**
- * Reads the doctor JWT token from localStorage.
- * Mirrors getPatientToken() in rehabAIClient but for the doctor.
- */
-function getDoctorToken() {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem('doctor_token') || null
-}
-
-/**
  * Hook for doctor-side AI chat — mirrors useRehabAIChat but:
  *  - Uses useDoctorAIChatStore (doctor-ai-chat-store) for state isolation
  *  - Authenticates using doctor_token (always authenticated)
@@ -72,31 +63,8 @@ export function useDoctorAIChat() {
         setError(null)
 
         try {
-            const token = getDoctorToken()
-
-            // Call createSession with authenticated=true; the rehabAIClient reads
-            // patient_token by default, so we override the Authorization header here.
-            const headers = {}
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`
-            }
-
-            // We bypass the exported createSession helper and call the endpoint
-            // directly so we can inject the doctor token into the Authorization header.
-            const BASE_URL = process.env.NEXT_PUBLIC_REHAB_AI_ENDPOINT || ''
-            const response = await fetch(`${BASE_URL}/api/v1/session`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...headers,
-                },
-            })
-
-            if (!response.ok) {
-                throw new Error(`Session creation failed: ${response.status}`)
-            }
-
-            const data = await response.json()
+            // Sends the doctor JWT so the session (and its chat history) belongs to this doctor
+            const data = await createSession(true, 'doctor_token')
             const newSessionId = data.session_id
 
             setSessionId(newSessionId, true)
@@ -228,8 +196,8 @@ export function useDoctorAIChat() {
                             throw sendErr
                         }
                     } else {
-                        if (sendErr.status === 403) {
-                            console.warn('[useDoctorAIChat] 403 — session expired. Re-creating session.')
+                        if (sendErr.status === 401 || sendErr.status === 403) {
+                            console.warn('[useDoctorAIChat] Session expired. Re-creating session.')
                             const newSid = await createFreshSession()
                             if (!newSid) throw new Error('Failed to re-create session after 403')
                             response = await attemptSend(newSid)
