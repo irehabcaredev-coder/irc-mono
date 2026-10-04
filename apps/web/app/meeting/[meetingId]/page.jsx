@@ -3,14 +3,14 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import nextDynamic from 'next/dynamic';
 import { useDoctorStore } from '@/store/useDoctorStore';
 import { usePatientStore } from '@/store/usePatientStore';
-import BrandWordmark from '@/components/BrandWordmark'; // Ensure this component is available or use simple text
+import { getMeetingDetails, getMeetingToken } from '@/lib/meetingApi';
 
-// Dynamically import AgoraWrapper with SSR disabled to prevent "window is not defined" error
-const AgoraWrapper = nextDynamic(() => import('@/components/video/AgoraVideoCall'), { 
+// Dynamically import the call UI with SSR disabled (LiveKit needs browser APIs)
+const LiveKitVideoCall = nextDynamic(() => import('@/components/video/LiveKitVideoCall'), { 
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
@@ -25,18 +25,16 @@ const AgoraWrapper = nextDynamic(() => import('@/components/video/AgoraVideoCall
 export default function MeetingPage() {
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
   const meetingId = params.meetingId;
-  const token = searchParams.get('token'); // Optional: Retrieve token from URL if provided (e.g. from backend response)
-  
-  // In a real app, you might fetch meeting details here to get the App ID, specific Channel Name,
-  // or a generated RTM/RTC token from your backend if it's dynamic.
-  // For now, we'll use the ENV App ID and the meetingId as the channel name.
-  
-  const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
+
   const [uid, setUid] = useState(null);
   const [guestName, setGuestName] = useState('');
   const [isJoinReady, setIsJoinReady] = useState(false);
+  const [meetingDetails, setMeetingDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(true);
+  const [tooEarly, setTooEarly] = useState(false);
+  const [connection, setConnection] = useState(null); // { token, url, roomName }
+  const [joinError, setJoinError] = useState(null); // { code, message }
 
   // Get user info from stores
   const doctorAuth = useDoctorStore((state) => state.doctorAuth);
@@ -107,68 +105,64 @@ export default function MeetingPage() {
     }
   };
 
-  if (!appId) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="p-6 bg-white rounded-lg shadow-md">
-          <h1 className="text-xl font-bold text-red-600 mb-2">Configuration Error</h1>
-          <p className="text-gray-700">Agora App ID is missing. Please configure NEXT_PUBLIC_AGORA_APP_ID in your environment variables.</p>
-        </div>
-      </div>
-    );
-  }
-
-
-  const [meetingDetails, setMeetingDetails] = useState(null);
-  const [loadingDetails, setLoadingDetails] = useState(true);
-  const [tooEarly, setTooEarly] = useState(false);
+  const role = isDoctorAuthed ? 'doctor' : isPatientAuthed ? 'patient' : null;
 
   useEffect(() => {
-      // Fetch meeting details to check time
-      const checkMeetingTime = async () => {
-          try {
-              // We can use the patient API to get details, or a public endpoint if we had one.
-              // Since we are fixing the patient flow, we try to get it.
-              // Note: This assumes the user has some permission or the endpoint is open enough for the check.
-              // In a real secure app, the token check happens on backend.
-              // For now, we'll try to fetch.
-              const { getAppointmentDetails } = await import('@/lib/patientApi');
-              const { data } = await getAppointmentDetails(meetingId);
-              
-              if (data) {
-                  setMeetingDetails(data);
-                  const scheduledTime = new Date(data.scheduledAt).getTime();
-                  const now = new Date().getTime();
-                  const tenMinutes = 10 * 60 * 1000;
-                  
-                  if (scheduledTime - now > tenMinutes) {
-                      setTooEarly(true);
-                  } else {
-                      setTooEarly(false);
-                  }
-              }
-          } catch (err) {
-              console.error("Failed to fetch meeting details", err);
-              // If we can't fetch (e.g. not authorized), we might let them through or block.
-              // For safety/UX, if we can't verify time, we might assume it's okay IF they have a token,
-              // or just let the backend socket reject them. 
-              // But the user requested "do not allow any of em to join before".
-              // So we should try to enforce it.
-          } finally {
-              setLoadingDetails(false);
-          }
-      };
-
-      if (meetingId) {
-          checkMeetingTime();
+    if (!meetingId) return;
+    (async () => {
+      try {
+        const { data } = await getMeetingDetails(meetingId);
+        setMeetingDetails(data);
+        const tenMinutes = 10 * 60 * 1000;
+        setTooEarly(new Date(data.scheduledAt).getTime() - Date.now() > tenMinutes);
+      } catch (err) {
+        setJoinError({ code: err.errorCode, message: err.status === 404 ? 'This meeting does not exist.' : err.message });
+      } finally {
+        setLoadingDetails(false);
       }
+    })();
   }, [meetingId]);
+
+  // Once we know who is joining (and it is not too early), get a LiveKit token from the backend
+  useEffect(() => {
+    if (!isJoinReady || !uid || tooEarly || connection || joinError || loadingDetails) return;
+    let cancelled = false;
+    getMeetingToken(meetingId, { role, name: uid })
+      .then(({ data }) => {
+        if (!cancelled) setConnection({ token: data.token, url: data.url, roomName: data.roomName });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err.errorCode === 'MEETING_NOT_STARTED') setTooEarly(true);
+        else setJoinError({ code: err.errorCode, message: err.message });
+      });
+    return () => { cancelled = true; };
+  }, [isJoinReady, uid, tooEarly, connection, joinError, loadingDetails, meetingId, role]);
 
   if (loadingDetails) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
         </div>
+      )
+  }
+
+  if (joinError) {
+      return (
+          <div className="flex items-center justify-center min-h-screen bg-gray-50">
+             <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                     {joinError.code === 'MEETING_ENDED' ? 'Meeting Ended' : "Can't Join Meeting"}
+                 </h2>
+                 <p className="text-gray-600 mb-6">{joinError.message}</p>
+                 <button
+                    onClick={handleLeave}
+                    className="w-full bg-gray-100 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-200 transition-colors"
+                 >
+                     Go Back
+                 </button>
+             </div>
+          </div>
       )
   }
 
@@ -246,13 +240,23 @@ export default function MeetingPage() {
       )
   }
 
+  if (!connection) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue mb-4"></div>
+          <p>Joining meeting...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900">
-      <AgoraWrapper 
-        appId={appId} 
-        channelName={meetingId} 
-        token={token || null} // Pass null if no token is used (forcing App ID only mode, usually for dev) 
-        uid={uid} 
+      <LiveKitVideoCall
+        serverUrl={connection.url}
+        token={connection.token}
+        roomName={connection.roomName}
         onLeave={handleLeave}
       />
     </div>

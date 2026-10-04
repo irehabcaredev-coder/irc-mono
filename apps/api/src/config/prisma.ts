@@ -4,7 +4,8 @@ import { Pool } from 'pg';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
+    // SSL is on by default (Supabase); set DATABASE_SSL=false only for a local Postgres
+    ssl: process.env.DATABASE_SSL === 'false' ? false : {
         rejectUnauthorized: false
     }
 });

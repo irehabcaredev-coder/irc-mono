@@ -14,6 +14,7 @@ import globalErrorHandler from './middlewares/globalErrorHandler';
 import { AppError } from './utils/AppError';
 import appointmentRoutes from './appointment-service/appointment.routes';
 import paymentRoutes from './payment-service/payment.routes';
+import meetingRoutes from './meeting-service/meeting.routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -53,6 +54,7 @@ app.use('/patients', patientRoutes);
 app.use('/leads', leadRoutes);
 app.use('/appointments', appointmentRoutes);
 app.use('/payments', paymentRoutes);
+app.use('/meetings', meetingRoutes);
 
 app.get('/', (req, res) => {
     res.send('ECare+ API is running');
