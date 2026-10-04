@@ -241,3 +241,15 @@ model AiMessage {
 
     @@index([chatId, createdAt])
 }
+
+enum AiPromptRole {
+    DOCTOR
+    PATIENT
+}
+
+// Editable master prompt, one per audience. Absent row = use the built-in default in src/ai-service/prompts.
+model AiPrompt {
+    role      AiPromptRole @id
+    content   String
+    updatedAt DateTime     @updatedAt
+}

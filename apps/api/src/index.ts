@@ -16,6 +16,7 @@ import appointmentRoutes from './appointment-service/appointment.routes';
 import paymentRoutes from './payment-service/payment.routes';
 import meetingRoutes from './meeting-service/meeting.routes';
 import aiRoutes from './ai-service/ai.routes';
+import aiAdminRoutes from './ai-service/ai.admin.routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -59,6 +60,7 @@ app.use('/leads', leadRoutes);
 app.use('/appointments', appointmentRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/meetings', meetingRoutes);
+app.use('/ai/admin', aiAdminRoutes);
 app.use('/ai', aiRoutes);
 
 app.get('/', (req, res) => {

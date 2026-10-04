@@ -5,7 +5,8 @@ import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from '../utils/httpSt
 import { OptionalUser } from '../middlewares/optionalAuth';
 import { complete, streamCompletion, ChatMessage, ContentPart } from './openrouter.client';
 import { ALLOWED_FILE_TYPES, limits, modelFor } from './ai.config';
-import { DOCTOR_SYSTEM_PROMPT, LEAD_QUALIFICATION_PROMPT, PATIENT_SYSTEM_PROMPT } from './prompts';
+import { LEAD_QUALIFICATION_PROMPT } from './prompts/lead';
+import { getMasterPrompt } from './prompt.service';
 import { leadQualificationSchema } from './ai.schema';
 import { fileMatchesType } from './file-validation';
 
@@ -55,7 +56,13 @@ export const listChats = async (session: AiSession) => {
 export const getMessages = async (session: AiSession, chatId: string, page: number, pageSize: number) => {
     if (!UUID.test(chatId)) throw new AppError('Chat not found', NOT_FOUND);
     const chat = await prisma.aiChat.findFirst({ where: { id: chatId, ...ownerWhere(session) } });
-    if (!chat) throw new AppError('Chat not found', NOT_FOUND);
+    if (!chat) {
+        // Same 404 either way, but a chat that exists and isn't theirs is worth a log line
+        if (await prisma.aiChat.findUnique({ where: { id: chatId }, select: { id: true } })) {
+            console.warn(`[ai] session ${session.id} tried to read a chat it does not own: ${chatId}`);
+        }
+        throw new AppError('Chat not found', NOT_FOUND);
+    }
 
     const [rows, total] = await Promise.all([
         prisma.aiMessage.findMany({
@@ -145,10 +152,12 @@ export const startTurn = async (session: AiSession, input: TurnInput, signal?: A
         select: { id: true },
     });
 
+    // Doctors get the doctor prompt; patients and guests get the patient prompt. Never mixed.
     const isDoctor = session.userType === 'doctor';
+    const masterPrompt = await getMasterPrompt(isDoctor ? 'doctor' : 'patient');
     const messages: ChatMessage[] = [
         // The stable prefix: marked cacheable so repeat turns don't pay full price for it
-        { role: 'system', content: [{ type: 'text', text: isDoctor ? DOCTOR_SYSTEM_PROMPT : PATIENT_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }] },
+        { role: 'system', content: [{ type: 'text', text: masterPrompt, cache_control: { type: 'ephemeral' } }] },
         ...history.map((m, i): ChatMessage => {
             const text = m.attachmentName ? `${m.content}\n[Attached: ${m.attachmentName}]` : m.content;
             const role = m.role === 'USER' ? 'user' : 'assistant';
