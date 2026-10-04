@@ -38,7 +38,7 @@ No `Dockerfile`/CI/env files currently exist in either repo, confirming this is 
 1. Add `apps/api/Dockerfile` (multi-stage: `pnpm install` → `tsc build` → slim runtime image running `dist/index.js`).
 2. Add root-level `docker-compose.yml` (or under `infra/`) with three services: `api` (built from `apps/api/Dockerfile`), `livekit` (official `livekit/livekit-server` image with a config file for keys/ports), and `caddy` (reverse proxy + automatic TLS for `api.irehabcare.com` and the LiveKit domain).
 3. Point `DATABASE_URL` at the Supabase Mumbai connection string; keep secrets in a `.env` on the VM (not committed).
-4. Deploy mechanism: GitHub Actions builds the API image on push to `main` (path-filtered to `apps/api/**` or shared packages), pushes to Google Artifact Registry, then SSHes into the VM to `docker compose pull && docker compose up -d`. Simple, no Kubernetes.
+4. Deploy mechanism: GitHub Actions builds the API image on push to `prod` (path-filtered to `apps/api/**` or shared packages), pushes to Google Artifact Registry, then SSHes into the VM to `docker compose pull && docker compose up -d`. Simple, no Kubernetes.
 
 ## Phase 4 — Frontend deploy + subdomain routing
 
