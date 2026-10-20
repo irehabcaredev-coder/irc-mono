@@ -21,6 +21,7 @@ export const createDoctor = async (data: any) => {
                     where: { email },
                     data: { password: hashedPassword, otp, otpExpiry, onboardingStep: OnboardingStep.EMAIL_VERIFIED }
                 });
+                await emailService.sendEmail(email, 'Your Verification Code', `<p>Your OTP is ${otp}</p>`);
                 return { doctor: updated, otp };
             }
             throw new AppError('Email already exists', CONFLICT);
