@@ -136,18 +136,18 @@ router.get('/:id/leads', authenticateJWT, asyncHandler(async (req: Authenticated
      if (req.user?.type !== 'doctor') throw new AppError('Forbidden', FORBIDDEN);
      const page = parseInt(req.query.page as string) || 1;
      const limit = parseInt(req.query.limit as string) || 10;
-     const result = await leadService.getLeadsForDoctor(req.params.id, page, limit);
+     const result = await leadService.getLeadsForDoctor(req.params.id as string, page, limit);
      res.json({ success: true, ...result });
 }));
 
 router.get('/:id',authenticateJWT, asyncHandler(async (req: Request, res: Response) => {
-    const doctor = await doctorService.findDoctorById(req.params.id);
+    const doctor = await doctorService.findDoctorById(req.params.id as string);
     if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
     res.json({ success: true, data: doctor });
 }));
 
 router.post('/:id/view',authenticateJWT, asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { patientId } = req.body;
     if (patientId) {
         await leadService.registerProfileView(id, patientId);

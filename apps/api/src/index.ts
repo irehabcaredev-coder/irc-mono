@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
@@ -17,6 +18,7 @@ import paymentRoutes from './payment-service/payment.routes';
 import meetingRoutes from './meeting-service/meeting.routes';
 import aiRoutes from './ai-service/ai.routes';
 import aiAdminRoutes from './ai-service/ai.admin.routes';
+import { setupSignalingServer } from './meeting-service/signaling.server';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -41,10 +43,10 @@ app.use(passport.session());
 
 // CORS configuration
 app.use(cors({
-    origin: '*', // Allow all origins in development, set specific URL in production
+    origin: (origin, callback) => callback(null, true),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'patient_token', 'doctor_token'],
     exposedHeaders: ['X-Chat-Id']
 }));
 
@@ -68,7 +70,6 @@ app.get('/', (req, res) => {
 });
 
 // Handle undefined routes
-// Handle undefined routes
 app.all(/.*/, (req, res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
@@ -76,6 +77,9 @@ app.all(/.*/, (req, res, next) => {
 // Global Error Handler
 app.use(globalErrorHandler);
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+setupSignalingServer(server);
+
+server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

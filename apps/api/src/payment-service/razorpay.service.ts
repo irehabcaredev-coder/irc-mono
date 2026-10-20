@@ -5,12 +5,24 @@ import { INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
 
 let razorpayInstance: Razorpay | null = null;
 
+const isPlaceholderKey = (key?: string) => {
+    if (!key) return true;
+    const trimmed = key.trim().toLowerCase();
+    return (
+        trimmed === '' ||
+        trimmed.startsWith('your-') ||
+        trimmed.includes('change-me') ||
+        trimmed === 'your-razorpay-key-id' ||
+        trimmed === 'your-razorpay-key-secret'
+    );
+};
+
 const getRazorpayInstance = () => {
     const key_id = process.env.RAZORPAY_KEY_ID;
     const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
-    if (!key_id || !key_secret) {
-        console.warn('Razorpay keys are missing in environment variables. Skipping Razorpay operations.');
+    if (!key_id || !key_secret || isPlaceholderKey(key_id) || isPlaceholderKey(key_secret)) {
+        console.warn('Razorpay keys are missing or set to placeholder values in environment variables. Skipping Razorpay operations.');
         return null;
     }
 
@@ -27,7 +39,7 @@ export const createLinkedAccount = async (doctor: { email: string, name: string,
     try {
         const razorpay = getRazorpayInstance();
         if (!razorpay) return { id: null, status: 'skipped' };
-        
+
         const account = await (razorpay.accounts as any).create({
             email: doctor.email,
             phone: doctor.phone,
@@ -51,8 +63,16 @@ export const createLinkedAccount = async (doctor: { email: string, name: string,
         });
         return account;
     } catch (error: any) {
-        console.error('Razorpay Account Creation Error:', error);
-        throw new AppError('Error creating Razorpay linked account: ' + error.message, INTERNAL_SERVER_ERROR);
+        const errorMsg = error?.error?.description || error?.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
+        console.error('Razorpay Account Creation Error:', errorMsg, error);
+
+        // In non-production, don't block doctor onboarding if Razorpay Route fails (e.g. invalid test keys)
+        if (process.env.NODE_ENV !== 'production') {
+            console.warn('Non-production mode: Skipping Razorpay linked account error to allow doctor onboarding.');
+            return { id: null, status: 'failed_dev_skipped', error: errorMsg };
+        }
+
+        throw new AppError('Error creating Razorpay linked account: ' + errorMsg, INTERNAL_SERVER_ERROR);
     }
 };
 
@@ -60,7 +80,7 @@ export const createOrder = async (amount: number, doctorRazorpayId: string, comm
     try {
         const razorpay = getRazorpayInstance();
         if (!razorpay) return { id: null, status: 'skipped' };
-        
+
         const commission = Math.round(amount * (commissionPercent / 100));
         const amountToTransfer = amount - commission;
 
@@ -78,8 +98,9 @@ export const createOrder = async (amount: number, doctorRazorpayId: string, comm
         });
         return order;
     } catch (error: any) {
-        console.error('Razorpay Order Creation Error:', error);
-        throw new AppError('Error creating Razorpay order: ' + error.message, INTERNAL_SERVER_ERROR);
+        const errorMsg = error?.error?.description || error?.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
+        console.error('Razorpay Order Creation Error:', errorMsg, error);
+        throw new AppError('Error creating Razorpay order: ' + errorMsg, INTERNAL_SERVER_ERROR);
     }
 };
 

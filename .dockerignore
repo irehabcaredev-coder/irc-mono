@@ -4,6 +4,5 @@
 **/.env
 **/.env.*
 .git
-apps/web
 docs
 infra

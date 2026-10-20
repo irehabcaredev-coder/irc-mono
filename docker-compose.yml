@@ -1,0 +1,30 @@
+# Local development with Docker
+# Run with: docker compose up --build
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - apps/api/.env
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_ENDPOINT: http://localhost:8000
+        NEXT_PUBLIC_MAIN_URL: http://localhost:3000
+        NEXT_PUBLIC_DOCTORS_URL: http://localhost:3000
+    env_file:
+      - apps/web/.env
+    environment:
+      - PORT=3000
+      - NEXT_PUBLIC_BASE_ENDPOINT=http://localhost:8000
+      - NEXT_PUBLIC_MAIN_URL=http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api

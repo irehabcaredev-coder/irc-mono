@@ -13,7 +13,7 @@ const router = Router();
 
 // View Doctor Profile (Generates Lead)
 router.post('/:id/view', validate(viewProfileSchema), asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { patientId } = req.body;
     
    

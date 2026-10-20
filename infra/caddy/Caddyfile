@@ -1,9 +1,23 @@
+{
+	email irehabcaredev@gmail.com
+}
+
+34.14.138.47.nip.io, 34.14.138.47.sslip.io {
+	encode gzip
+	reverse_proxy api:8000
+}
+
+http://34.14.138.47 {
+	reverse_proxy api:8000
+}
+
+https://34.14.138.47 {
+	tls internal
+	reverse_proxy api:8000
+}
+
 {$API_DOMAIN} {
 	encode gzip
 	reverse_proxy api:8000
 }
 
-{$LIVEKIT_DOMAIN} {
-	# WebSocket signalling; Caddy upgrades the connection automatically
-	reverse_proxy host.docker.internal:7880
-}

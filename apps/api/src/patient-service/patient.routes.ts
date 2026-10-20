@@ -101,12 +101,12 @@ router.delete('/saved-doctors', authenticateJWT, asyncHandler(async (req: Authen
 }));
 
 router.get('/:patientId/saved-doctors', authenticateJWT, asyncHandler(async (req: Request, res: Response) => {
-    const result = await patientService.getSavedDoctors(req.params.patientId);
+    const result = await patientService.getSavedDoctors(req.params.patientId as string);
     res.json({ success: true, data: result });
 }));
 
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
-    const patient = await patientService.findPatientById(req.params.id);
+    const patient = await patientService.findPatientById(req.params.id as string);
     if (!patient) throw new AppError('Patient not found', NOT_FOUND);
     res.json({ success: true, data: patient });
 }));

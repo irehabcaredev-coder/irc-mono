@@ -19,34 +19,36 @@ function getErrorLogger() {
 }
 
 function getBaseUrl() {
-  // Check for the environment variable (must be prefixed with NEXT_PUBLIC_ for client-side access)
-  const baseUrl =
+  const envUrl =
     process.env.NEXT_PUBLIC_BASE_ENDPOINT ||
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_BASE_URL ||
-    'http://localhost:3000'
+    'http://localhost:8000';
 
-  // Log in development to help debug
-  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-    console.log('[API Client] Base URL:', baseUrl)
-    if (baseUrl === 'http://localhost:3000') {
-      console.warn(
-        '[API Client] Using default localhost:3000. Set NEXT_PUBLIC_BASE_ENDPOINT in .env.local to use a different URL.'
-      )
-    }
+  if (typeof window !== 'undefined') {
+    try {
+      const url = new URL(envUrl);
+      // If environment variable points to localhost/127.0.0.1, but user is accessing via an IP or custom hostname:
+      if (
+        (url.hostname === 'localhost' || url.hostname === '127.0.0.1') &&
+        window.location.hostname !== 'localhost' &&
+        window.location.hostname !== '127.0.0.1'
+      ) {
+        url.hostname = window.location.hostname;
+        return url.origin;
+      }
+    } catch (_) {}
   }
 
-  return baseUrl
+  return envUrl;
 }
-
-const BASE_URL = getBaseUrl()
 
 class ApiError extends Error {
   constructor(message, status, errorCode) {
-    super(message)
-    this.status = status
-    this.errorCode = errorCode
-    this.name = 'ApiError'
+    super(message);
+    this.status = status;
+    this.errorCode = errorCode;
+    this.name = 'ApiError';
   }
 }
 
@@ -59,7 +61,7 @@ class ApiError extends Error {
  * @returns {Promise<object>} Parsed JSON response
  */
 export async function apiRequest(endpoint, options = {}) {
-  const url = `${BASE_URL}${endpoint}`
+  const url = `${getBaseUrl()}${endpoint}`;
   
   // Determine which token to use
   let token = null

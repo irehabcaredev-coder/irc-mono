@@ -1,59 +1,28 @@
-# Local testing (macOS/Linux): api + postgres + livekit, no TLS.
-#   docker compose -f docker-compose.local.yml up --build
-# Needs apps/api/.env for the non-database variables; DATABASE_URL is overridden below.
+# Local testing: api (with backend secrets) + web (native WebRTC signaling on api)
+# Run from infra:  docker compose -f docker-compose.local.yml up --build
 services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: ecare
-      POSTGRES_PASSWORD: ecare
-      POSTGRES_DB: ecare_plus
-    ports: ["55432:5432"]   # not 5432: that port is often taken on dev machines
-    volumes: [pgdata:/var/lib/postgresql/data]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ecare -d ecare_plus"]
-      interval: 5s
-      retries: 10
-
   api:
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
     env_file: ../apps/api/.env
-    environment:
-      DATABASE_URL: postgresql://ecare:ecare@db:5432/ecare_plus
-      DIRECT_URL: postgresql://ecare:ecare@db:5432/ecare_plus
-      NODE_ENV: development
-      DATABASE_SSL: "false"
-    ports: ["8000:8000"]
-    depends_on:
-      db: { condition: service_healthy }
+    ports:
+      - "8000:8000"
 
-  migrate:
+  web:
     build:
       context: ..
-      dockerfile: apps/api/Dockerfile
-    profiles: ["tools"]
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_ENDPOINT: http://localhost:8000
+        NEXT_PUBLIC_MAIN_URL: http://localhost:3000
+        NEXT_PUBLIC_DOCTORS_URL: http://localhost:3000
+    env_file: ../apps/web/.env
     environment:
-      DATABASE_URL: postgresql://ecare:ecare@db:5432/ecare_plus
-      DIRECT_URL: postgresql://ecare:ecare@db:5432/ecare_plus
-    command: ["npx", "--no-install", "prisma", "migrate", "deploy"]
-    depends_on:
-      db: { condition: service_healthy }
-
-  livekit:
-    image: livekit/livekit-server:v1.8
-    command: ["--dev", "--bind", "0.0.0.0"]   # dev keys: devkey / secret
+      - PORT=3000
+      - NEXT_PUBLIC_BASE_ENDPOINT=http://localhost:8000
+      - NEXT_PUBLIC_MAIN_URL=http://localhost:3000
     ports:
-      - "7880:7880"
-      - "7881:7881"
-      - "50000-50100:50000-50100/udp"
-    environment:
-      LIVEKIT_CONFIG: |
-        rtc:
-          port_range_start: 50000
-          port_range_end: 50100
-          use_external_ip: false
-
-volumes:
-  pgdata:
+      - "3000:3000"
+    depends_on:
+      - api

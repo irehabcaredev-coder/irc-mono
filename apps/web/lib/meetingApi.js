@@ -6,7 +6,7 @@ export async function getMeetingDetails(meetingId) {
 }
 
 /**
- * Ask the backend for a LiveKit token.
+ * Ask the backend for a WebRTC signaling token.
  * role: 'doctor' | 'patient' sends that user's JWT; null joins as a guest using `name`.
  * Rejects with ApiError; errorCode may be MEETING_NOT_STARTED / MEETING_ENDED.
  */
