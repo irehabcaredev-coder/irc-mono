@@ -4,10 +4,10 @@ import rateLimit from 'express-rate-limit';
 import { AiSession } from '@prisma/client';
 import asyncHandler from '../utils/asyncHandler';
 import { AppError } from '../utils/AppError';
-import { BAD_REQUEST } from '../utils/httpStatusCodes';
+import { BAD_REQUEST, SERVICE_UNAVAILABLE } from '../utils/httpStatusCodes';
 import { getOptionalUser } from '../middlewares/optionalAuth';
 import * as aiService from './ai.service';
-import { ALLOWED_FILE_TYPES, limits } from './ai.config';
+import { ALLOWED_FILE_TYPES, attachmentsEnabled, limits } from './ai.config';
 import { chatBodySchema, fileBodySchema, pagingSchema } from './ai.schema';
 
 const router = express.Router();
@@ -33,6 +33,12 @@ const withSession = asyncHandler(async (req, res, next) => {
     res.locals.session = await aiService.requireSession(req.header('x-session-id'));
     next();
 });
+
+// Refuses before the upload is buffered, so a switched-off feature costs nothing
+const requireAttachments = (_req: Request, _res: Response, next: NextFunction) =>
+    attachmentsEnabled()
+        ? next()
+        : next(new AppError('Image and PDF analysis is not available right now. Please describe it in text.', SERVICE_UNAVAILABLE));
 
 const parse = <T>(schema: { safeParse: (v: unknown) => any }, value: unknown): T => {
     const r = schema.safeParse(value);
@@ -107,7 +113,7 @@ router.post('/chat', limiter(20), withSession, asyncHandler(async (req, res) => 
     await pipeReply(res, chatId, stream, abort, 'sse');
 }));
 
-router.post('/chat/file', limiter(10), withSession, uploadFile, asyncHandler(async (req, res) => {
+router.post('/chat/file', limiter(10), withSession, requireAttachments, uploadFile, asyncHandler(async (req, res) => {
     if (!req.file) throw new AppError('file is required', BAD_REQUEST);
     const body = parse<any>(fileBodySchema, req.body);
     const abort = abortOnDisconnect(res);

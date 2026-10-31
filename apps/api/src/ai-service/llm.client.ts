@@ -1,8 +1,21 @@
 import { AppError } from '../utils/AppError';
 import { INTERNAL_SERVER_ERROR, SERVICE_UNAVAILABLE } from '../utils/httpStatusCodes';
+import { fallbackModel } from './ai.config';
 
-// OPENROUTER_BASE_URL exists so tests can point at a local mock
-const endpoint = () => `${process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1'}/chat/completions`;
+// Z.ai (GLM) via its OpenAI-compatible API. AI_BASE_URL exists so tests can point at a local mock, or at
+// another OpenAI-compatible provider (then set GLM_KEY to that provider's key and AI_THINKING to "").
+const endpoint = () => `${process.env.AI_BASE_URL || 'https://api.z.ai/api/paas/v4'}/chat/completions`;
+
+// GLM thinks by default, which adds many seconds per reply. Chat answers are better off without it.
+// "disabled" | "enabled" | "" (don't send the field; some models, e.g. glm-5.3*, always think and reject "disabled").
+const thinkingMode = () => process.env.AI_THINKING ?? 'disabled';
+
+// Text-only messages are sent as plain strings: the widest-supported shape, and it drops the cache_control hints
+// (an Anthropic/OpenRouter feature) that GLM has no use for. Messages with images/files keep their parts.
+const flatten = (m: ChatMessage): ChatMessage =>
+    Array.isArray(m.content) && m.content.every((p) => p.type === 'text')
+        ? { role: m.role, content: m.content.map((p) => (p as { text: string }).text).join('\n') }
+        : m;
 const BAD_GATEWAY = 502;
 
 type Cache = { cache_control?: { type: 'ephemeral' } };
@@ -18,13 +31,13 @@ export type CompletionOptions = {
     messages: ChatMessage[];
     maxTokens?: number;
     json?: boolean;
-    /** OpenRouter plugins, e.g. the PDF parser */
+    /** Provider plugins (OpenRouter's PDF parser); GLM ignores these, kept for when attachments return */
     plugins?: unknown[];
     signal?: AbortSignal;
 };
 
 const request = async (opts: CompletionOptions, stream: boolean): Promise<Response> => {
-    const key = process.env.OPENROUTER_API_KEY;
+    const key = process.env.GLM_KEY;
     if (!key) throw new AppError('AI service is not configured', SERVICE_UNAVAILABLE);
 
     let res: Response;
@@ -35,14 +48,13 @@ const request = async (opts: CompletionOptions, stream: boolean): Promise<Respon
             headers: {
                 Authorization: `Bearer ${key}`,
                 'Content-Type': 'application/json',
-                'HTTP-Referer': process.env.FRONTEND_URL || 'https://irehabcare.com',
-                'X-Title': 'iRehabCare',
             },
             body: JSON.stringify({
                 model: opts.model,
-                messages: opts.messages,
+                messages: opts.messages.map(flatten),
                 max_tokens: opts.maxTokens,
                 stream,
+                ...(thinkingMode() ? { thinking: { type: thinkingMode() } } : {}),
                 ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
                 ...(opts.plugins ? { plugins: opts.plugins } : {}),
             }),
@@ -52,9 +64,16 @@ const request = async (opts: CompletionOptions, stream: boolean): Promise<Respon
         throw new AppError('Could not reach the AI provider', BAD_GATEWAY);
     }
 
+    // Optional: retry once on AI_MODEL_FALLBACK when the main model throttles (429) or hiccups (5xx)
+    const fallback = fallbackModel();
+    if ((res.status === 429 || res.status >= 500) && fallback && opts.model !== fallback) {
+        console.warn(`[ai] ${opts.model} returned ${res.status}, retrying on ${fallback}`);
+        return request({ ...opts, model: fallback }, stream);
+    }
+
     if (!res.ok) {
         // Log the provider's reason server-side; never forward it to the client
-        console.error(`[ai] OpenRouter ${res.status}: ${(await res.text().catch(() => '')).slice(0, 500)}`);
+        console.error(`[ai] provider ${res.status}: ${(await res.text().catch(() => '')).slice(0, 500)}`);
         throw new AppError(res.status === 429 ? 'The AI is busy, please try again shortly' : 'The AI provider returned an error', res.status === 429 ? 429 : BAD_GATEWAY);
     }
     return res;
@@ -86,7 +105,7 @@ export async function* streamCompletion(opts: CompletionOptions): AsyncGenerator
             buffer = lines.pop() ?? '';
             for (const raw of lines) {
                 const line = raw.trim();
-                // SSE comments (": OPENROUTER PROCESSING") and blank lines are keep-alives
+                // SSE comments and blank lines are keep-alives
                 if (!line.startsWith('data:')) continue;
                 const payload = line.slice(5).trim();
                 if (payload === '[DONE]') return;

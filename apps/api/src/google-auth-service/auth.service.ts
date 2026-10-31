@@ -5,6 +5,7 @@ import { OnboardingStep, PatientOnboardingStep } from '@prisma/client';
 import prisma from '../config/prisma';
 import { AppError } from '../utils/AppError';
 import { INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
+import { startComplianceGraceIfNeeded } from '../doctor-service/rci.service';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -36,6 +37,7 @@ export const handleGoogleAuth = async (googleId: string, email: string, name: st
 
             if (doctor) {
                 const isOnboardingComplete = doctor.onboardingStep === OnboardingStep.COMPLETE;
+                await startComplianceGraceIfNeeded(doctor);
                 const token = generateToken(doctor.id, doctor.email, 'doctor');
                 
                 return {
@@ -78,6 +80,7 @@ export const handleGoogleAuth = async (googleId: string, email: string, name: st
                         data: { googleId } as any
                     });
 
+                    await startComplianceGraceIfNeeded(updatedDoctor);
                     const token = generateToken(updatedDoctor.id, updatedDoctor.email, 'doctor');
                     return {
                         success: true,

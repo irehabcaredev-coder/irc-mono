@@ -4,6 +4,7 @@ import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
 import * as emailService from '../email-service/email.service';
 import { AppointmentStatus } from '@prisma/client';
+import { presentDoctor } from '../doctor-service/doctorPrivacy';
 
 export const scheduleAppointment = async (doctorId: string, patientId: string, scheduledAt: string, scheduledEnd: string, meetingName: string) => {
     try {
@@ -99,7 +100,7 @@ export const getPatientAppointments = async (patientId: string, page: number = 1
         ]);
 
         return {
-            data: appointments,
+            data: appointments.map((a) => ({ ...a, doctor: presentDoctor(a.doctor) })),
             meta: {
                 total,
                 page,

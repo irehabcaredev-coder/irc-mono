@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { isTokenCurrent } from '../utils/tokenCutoff';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -16,11 +17,11 @@ export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunct
         const token = authHeader.split(' ')[1]; // Bearer <token>
 
         jwt.verify(token, JWT_SECRET, (err, user) => {
-            if (err) {
+            if (err || !isTokenCurrent(user)) {
                 return res.status(403).json({
                     success: false,
-                    message: 'Invalid or expired token',
-                    error: 'FORBIDDEN'
+                    message: 'Your session has expired. Please sign in again.',
+                    error: 'INVALID_TOKEN'
                 });
             }
 

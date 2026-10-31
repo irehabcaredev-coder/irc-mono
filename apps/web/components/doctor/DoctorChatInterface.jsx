@@ -5,6 +5,9 @@ import { Send, Paperclip, MessageSquare, Plus, Search, MoreVertical, ArrowRight,
 import ReactMarkdown from 'react-markdown'
 import { useDoctorAIChat } from '@/hooks/useDoctorAIChat'
 
+// Image/PDF analysis is switched off while the AI runs on text-only models; the code stays for when it returns.
+const ATTACHMENTS_ENABLED = process.env.NEXT_PUBLIC_AI_ATTACHMENTS === 'true'
+
 function formatChatDate(dateString) {
     if (!dateString) return ''
     const date = new Date(dateString)
@@ -307,6 +310,7 @@ export default function DoctorChatInterface() {
                 <div className="p-3 sm:p-4 border-t border-gray-200 bg-white">
                     <div className="flex gap-2 sm:gap-4 max-w-4xl mx-auto items-center">
                         {/* File attachment */}
+                        {ATTACHMENTS_ENABLED && (<>
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -330,6 +334,7 @@ export default function DoctorChatInterface() {
                                 <Paperclip className="w-5 h-5" />
                             )}
                         </button>
+                        </>)}
                         <div className="flex-1 relative">
                             <input
                                 type="text"

@@ -1,6 +1,7 @@
 
 import { PrismaClient, Patient, PatientOnboardingStep, Gender } from '@prisma/client';
 import prisma from '../config/prisma';
+import { presentDoctor } from '../doctor-service/doctorPrivacy';
 import bcrypt from 'bcrypt';
 import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, NOT_FOUND, UNAUTHORIZED, CONFLICT, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
@@ -239,7 +240,7 @@ export const getSavedDoctors = async (patientId: string) => {
         });
         
         if (!patient) throw new AppError('Patient not found', NOT_FOUND);
-        return patient.savedDoctors;
+        return patient.savedDoctors.map((d) => presentDoctor(d));
     } catch (error: any) {
         if (error instanceof AppError) throw error;
         throw new AppError('Error fetching saved doctors: ' + error.message, INTERNAL_SERVER_ERROR);

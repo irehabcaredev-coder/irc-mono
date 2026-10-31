@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowRight, ArrowLeft } from 'lucide-react'
+import { ArrowRight, ArrowLeft, BadgeCheck } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import {
   submitPersonalInfo,
   submitProfessionalInfo,
   submitAvailability,
   submitPaymentInfo,
+  verifyRciRegistration,
 } from '@/lib/doctorApi'
+import AgreementForm from '@/components/doctor/AgreementForm'
 import { fetchDoctorProfile } from '@/lib/doctorApi'
 
 import { ApiError } from '@/lib/apiClient'
@@ -50,6 +52,15 @@ function OnboardingContent() {
   const [submitError, setSubmitError] = useState('')
   const [isHydrated, setIsHydrated] = useState(false)
   const hasInitialized = useRef(false)
+
+  // RCI verification gates the whole flow: null = not yet known, false = must verify, true = verified
+  const [rciVerified, setRciVerified] = useState(null)
+  const [rciNumber, setRciNumber] = useState('')
+  const [rciLoading, setRciLoading] = useState(false)
+  const [rciError, setRciError] = useState('')
+
+  // Provider agreement: null = not yet known. Step 2 of the wizard; nothing after it opens until it is accepted
+  const [agreementAccepted, setAgreementAccepted] = useState(null)
 
   // JWT Parser (Robust for base64url)
   const parseJwt = (token) => {
@@ -107,17 +118,57 @@ function OnboardingContent() {
     setIsHydrated(true)
   }, [])
 
+  useEffect(() => {
+    if (!isHydrated || !doctorAuth.isAuthed || !doctorAuth.doctorId) return
+    let cancelled = false
+    fetchDoctorProfile(doctorAuth.doctorId)
+      .then((result) => {
+        if (cancelled) return
+        setRciVerified(Boolean(result?.data?.rciRegistrationId))
+        setAgreementAccepted(Boolean(result?.data?.agreementAccepted))
+      })
+      .catch(() => {
+        // Can't tell, so keep the gate closed; the server enforces it regardless
+        if (cancelled) return
+        setRciVerified(false)
+        setAgreementAccepted(false)
+      })
+    return () => { cancelled = true }
+  }, [isHydrated, doctorAuth.isAuthed, doctorAuth.doctorId])
+
+  useEffect(() => {
+    if (rciVerified === false && step !== 1) setStep(1)
+    else if (rciVerified && agreementAccepted === false && step > 2) setStep(2)
+  }, [rciVerified, agreementAccepted, step])
+
+  const handleVerifyRci = async () => {
+    if (!rciNumber.trim()) {
+      setRciError('Enter your RCI registration number')
+      return
+    }
+    setRciError('')
+    setRciLoading(true)
+    try {
+      await verifyRciRegistration(rciNumber)
+      setRciVerified(true)
+    } catch (error) {
+      setRciError(error instanceof ApiError ? error.message : 'Could not verify your RCI number. Please try again.')
+    } finally {
+      setRciLoading(false)
+    }
+  }
+
   // Helper: map backend onboarding step to UI step number
   const getStepFromOnboardingStep = (onboardingStep) => {
     switch (onboardingStep) {
       case 'PERSONAL_INFO_COMPLETE':
         return { step: 1, redirect: null }   // Land on personal info (even if backend says complete)
       case 'PROFESSIONAL_INFO_COMPLETE':
-        return { step: 2, redirect: null }   // Move to professional info
+        return { step: 2, redirect: null }   // Provider agreement, then professional info
       case 'AVAILABILITY_COMPLETE':
-        return { step: 3, redirect: null }   // Move to availability
+        return { step: 4, redirect: null }   // Move to availability
       case 'PAYMENT_INFO_COMPLETE':
-        return { step: 4, redirect: null }   // Move to payment info
+        return { step: 5, redirect: null }   // Move to payment info
       case 'COMPLETE':
         return { step: null, redirect: '/dashboard' }
       case 'EMAIL_VERIFIED':
@@ -226,7 +277,8 @@ function OnboardingContent() {
     const newErrors = {}
 
     if (stepNum === 1) {
-      // Step 1: Personal Info
+      // Step 1: RCI verification, then Personal Info
+      if (!rciVerified) newErrors.rci = 'Verify your RCI registration number to continue'
       if (!basicData?.name?.trim()) newErrors.name = 'Name is required'
       if (!basicData?.age || basicData?.age < 18 || basicData?.age > 100) {
         newErrors.age = 'Please enter a valid age (18-100)'
@@ -240,8 +292,8 @@ function OnboardingContent() {
       }
     }
 
-    if (stepNum === 2) {
-      // Step 2: Professional Info
+    if (stepNum === 3) {
+      // Step 3: Professional Info
       if (!professionalData?.specialty?.trim()) {
         newErrors.specialty = 'Please select a specialty'
       }
@@ -258,8 +310,8 @@ function OnboardingContent() {
       }
     }
 
-    if (stepNum === 3) {
-      // Step 3: Availability
+    if (stepNum === 4) {
+      // Step 4: Availability
       if (!practiceData?.address?.trim() || practiceData.address.trim().length < 5) {
         newErrors.address = 'Address must be at least 5 characters'
       }
@@ -284,8 +336,8 @@ function OnboardingContent() {
       }
     }
 
-    if (stepNum === 4) {
-      // Step 4: Payment Info
+    if (stepNum === 5) {
+      // Step 5: Payment Info
       const fee = Number(paymentData?.consultationFee)
       if (!paymentData?.consultationFee || isNaN(fee) || fee <= 0) {
         newErrors.consultationFee = 'Please enter a valid consultation fee'
@@ -330,7 +382,7 @@ function OnboardingContent() {
           setOnboardingStep(result.data.onboardingStep)
           setStep(2)
         }
-      } else if (stepNum === 2) {
+      } else if (stepNum === 3) {
         // Submit Professional Info
         const apiData = transformProfessionalDetailsToAPI(professionalData)
         const result = await submitProfessionalInfo(doctorId, apiData)
@@ -338,9 +390,9 @@ function OnboardingContent() {
         if (result.success && result.data) {
           updateProfessionalDetails(professionalData)
           setOnboardingStep(result.data.onboardingStep)
-          setStep(3)
+          setStep(4)
         }
-      } else if (stepNum === 3) {
+      } else if (stepNum === 4) {
         // Submit Availability
         const apiData = transformPracticeDetailsToAPI(practiceData)
         const result = await submitAvailability(doctorId, apiData)
@@ -348,9 +400,9 @@ function OnboardingContent() {
         if (result.success && result.data) {
           updatePracticeDetails(practiceData)
           setOnboardingStep(result.data.onboardingStep)
-          setStep(4) // Move to payment info
+          setStep(5) // Move to payment info
         }
-      } else if (stepNum === 4) {
+      } else if (stepNum === 5) {
         // Submit Payment Info (final step)
         const result = await submitPaymentInfo(doctorId, {
           consultationFee: Number(paymentData.consultationFee),
@@ -445,11 +497,12 @@ function OnboardingContent() {
             <div className="text-center">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 {step === 1 && 'Personal Information'}
-                {step === 2 && 'Professional Details'}
-                {step === 3 && 'Practice Details'}
-                {step === 4 && 'Payment Information'}
+                {step === 2 && 'Provider Agreement'}
+                {step === 3 && 'Professional Details'}
+                {step === 4 && 'Practice Details'}
+                {step === 5 && 'Payment Information'}
               </h1>
-              <p className="text-gray-600">Step {step} of 4</p>
+              <p className="text-gray-600">Step {step} of 5</p>
             </div>
           </div>
 
@@ -463,6 +516,59 @@ function OnboardingContent() {
             {/* Step 1: Personal Information */}
             {step === 1 && (
               <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    RCI Registration Number *
+                  </label>
+                  {rciVerified ? (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm font-medium">
+                      <BadgeCheck className="w-5 h-5" />
+                      RCI registration verified
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          value={rciNumber}
+                          onChange={(e) => {
+                            setRciNumber(e.target.value)
+                            if (rciError) setRciError('')
+                            if (errors.rci) setErrors((prev) => ({ ...prev, rci: null }))
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleVerifyRci()
+                            }
+                          }}
+                          disabled={rciLoading || rciVerified === null}
+                          className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent uppercase"
+                          placeholder="e.g. A12345"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleVerifyRci}
+                          disabled={rciLoading || rciVerified === null}
+                          className="px-6 py-3 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {rciLoading ? 'Verifying...' : 'Verify'}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Your registration must be active with the Rehabilitation Council of India. Each RCI number can be linked to one account only.
+                      </p>
+                    </>
+                  )}
+                  {(rciError || errors.rci) && (
+                    <p className="mt-1 text-sm text-accent-red">{rciError || errors.rci}</p>
+                  )}
+                </div>
+
+                <fieldset
+                  disabled={!rciVerified}
+                  className={`space-y-6 min-w-0 border-0 p-0 m-0 transition-opacity ${rciVerified ? '' : 'opacity-50 pointer-events-none select-none'}`}
+                >
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Name *
@@ -572,11 +678,25 @@ function OnboardingContent() {
                     <p className="mt-2 text-sm text-accent-red">{errors.languages}</p>
                   )}
                 </div>
+                </fieldset>
               </div>
             )}
 
-            {/* Step 2: Professional Details */}
+            {/* Step 2: Provider Agreement. Reading and accepting happens inside the form; it moves the wizard on itself */}
             {step === 2 && (
+              <AgreementForm
+                alreadyAccepted={agreementAccepted === true}
+                onAccepted={() => {
+                  setAgreementAccepted(true)
+                  setSubmitError('')
+                  setStep(3)
+                }}
+                onContinue={() => setStep(3)}
+              />
+            )}
+
+            {/* Step 3: Professional Details */}
+            {step === 3 && (
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -651,8 +771,8 @@ function OnboardingContent() {
               </div>
             )}
 
-            {/* Step 3: Practice Details */}
-            {step === 3 && (
+            {/* Step 4: Practice Details */}
+            {step === 4 && (
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -780,8 +900,8 @@ function OnboardingContent() {
               </div>
             )}
 
-            {/* Step 4: Payment Information */}
-            {step === 4 && (
+            {/* Step 5: Payment Information */}
+            {step === 5 && (
               <div className="space-y-6">
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
@@ -887,18 +1007,18 @@ function OnboardingContent() {
                 <ArrowLeft className="w-5 h-5 mr-2" />
                 Back
               </button>
-              <button
+              {step !== 2 && <button
                 onClick={handleNext}
-                disabled={submitLoading}
+                disabled={submitLoading || (step === 1 && !rciVerified)}
                 className="flex items-center px-6 py-3 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitLoading
                   ? 'Saving...'
-                  : step === 4
+                  : step === 5
                     ? 'Complete Setup'
                     : 'Next'}
                 {!submitLoading && <ArrowRight className="w-5 h-5 ml-2" />}
-              </button>
+              </button>}
             </div>
           </div>
         </div>

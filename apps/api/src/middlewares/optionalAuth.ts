@@ -1,5 +1,6 @@
 import { Request } from 'express';
 import jwt from 'jsonwebtoken';
+import { isTokenCurrent } from '../utils/tokenCutoff';
 
 export type OptionalUser = { id: string; type: 'doctor' | 'patient' } | null;
 
@@ -12,7 +13,7 @@ export const getOptionalUser = (req: Request): OptionalUser => {
     if (!token) return null;
     try {
         const payload: any = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
-        return payload?.id && (payload.type === 'doctor' || payload.type === 'patient')
+        return isTokenCurrent(payload) && payload?.id && (payload.type === 'doctor' || payload.type === 'patient')
             ? { id: payload.id, type: payload.type }
             : null;
     } catch {

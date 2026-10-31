@@ -176,6 +176,19 @@ export async function apiRequest(endpoint, options = {}) {
         }
       }
       
+      // The server no longer accepts this session (e.g. tokens issued before a forced sign-out).
+      // Drop it and everything persisted from it, then send the user to sign in again.
+      if (typeof window !== 'undefined' && token && data && data.error === 'INVALID_TOKEN') {
+        try {
+          const patient = !!options.usePatientToken
+          localStorage.removeItem(patient ? 'patient_token' : 'doctor_token')
+          localStorage.removeItem(patient ? 'patient-store' : 'doctor-storage')
+        } catch (e) {
+          // Storage unavailable; the redirect still forces a fresh sign-in
+        }
+        window.location.assign(options.usePatientToken ? '/' : '/auth')
+      }
+
       throw apiError
     }
 
