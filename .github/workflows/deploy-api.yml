@@ -60,10 +60,13 @@ jobs:
             fi
       - name: Roll out
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE: ${{ env.IMAGE }}
         with:
           host: ${{ secrets.VM_HOST || vars.VM_HOST }}
           username: ${{ secrets.VM_USER || vars.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY || vars.VM_SSH_KEY }}
+          envs: IMAGE
           script: |
             cd /opt/ecareplus
             touch .env
