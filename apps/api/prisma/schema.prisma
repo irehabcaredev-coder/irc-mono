@@ -94,11 +94,12 @@ model Doctor {
     // RCI verification: unique, so one registration can back only one doctor account
     rciRegistrationId String?          @unique
     rciRegistration   RciRegistration? @relation(fields: [rciRegistrationId], references: [id], onDelete: SetNull)
-    rciDeadline       DateTime? // doctors onboarded before RCI existed: set at their first login, they have until then to verify
+    complianceDeadline DateTime? // doctors onboarded before RCI/agreement existed: set at their first login, they have until then to complete both
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    agreementAcceptances AgreementAcceptance[]
     savedByPatients Patient[]     @relation("SavedDoctors")
     leads           Lead[] // Patients who viewed this doctor's profile
     appointments    Appointment[]
@@ -270,4 +271,42 @@ model RciRegistration {
     createdAt          DateTime @default(now())
 
     doctor Doctor? // at most one account can claim a registration
+}
+
+// A published legal text. Immutable once seeded: a change is a new version row, so every acceptance keeps pointing
+// at the exact text (and hash) the doctor agreed to. See src/agreements and src/scripts/seed-agreements.ts.
+model Agreement {
+    id           String    @id @default(uuid())
+    key          String // e.g. "provider"
+    version      String
+    title        String
+    content      String // the full text, markdown
+    contentHash  String // sha256 of content + attestations
+    attestations String[] // the separate statements to tick, in order
+    effectiveAt  DateTime? // unset until legal review fixes the date
+    isCurrent    Boolean   @default(false) // the version new signups must accept
+    createdAt    DateTime  @default(now())
+
+    acceptances AgreementAcceptance[]
+
+    @@unique([key, version])
+    @@index([key, isCurrent])
+}
+
+// The consent receipt: who accepted which exact text, what they ticked, and when (server time).
+model AgreementAcceptance {
+    id            String    @id @default(uuid())
+    doctorId      String
+    doctor        Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+    agreementId   String
+    agreement     Agreement @relation(fields: [agreementId], references: [id])
+    contentHash   String // copied from the agreement at acceptance time
+    attestations  Boolean[] // one per attestation, all true
+    signatureName String // typed legal name, the e-signature
+    ipAddress     String?
+    userAgent     String?
+    acceptedAt    DateTime  @default(now())
+
+    @@unique([doctorId, agreementId])
+    @@index([agreementId])
 }
