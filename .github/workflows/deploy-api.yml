@@ -45,7 +45,6 @@ jobs:
           target: /opt/ecareplus
           strip_components: 1
       - name: Write .env on VM if provided in secrets
-        if: ${{ secrets.ENV_FILE != '' }}
         uses: appleboy/ssh-action@v1.0.3
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE }}
@@ -55,8 +54,10 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY }}
           envs: ENV_CONTENT
           script: |
-            mkdir -p /opt/ecareplus
-            printf "%s\n" "$ENV_CONTENT" > /opt/ecareplus/.env
+            if [ -n "$ENV_CONTENT" ]; then
+              mkdir -p /opt/ecareplus
+              printf "%s\n" "$ENV_CONTENT" > /opt/ecareplus/.env
+            fi
       - name: Roll out
         uses: appleboy/ssh-action@v1.0.3
         with:
