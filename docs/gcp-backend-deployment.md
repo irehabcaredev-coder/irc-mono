@@ -25,7 +25,6 @@ gcloud artifacts repositories create ecareplus \
   --location=$REGION \
   --description="ECare+ Backend Docker repository"
 ```
-
 ### B. Create a Service Account for GitHub Actions
 ```bash
 # Create service account
