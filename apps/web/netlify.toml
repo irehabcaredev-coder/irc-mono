@@ -1,5 +1,6 @@
 [build]
-  command = "npm run build"
+  # Web only. The root "build" script also compiles the API, which needs `prisma generate` and is deployed by its own workflow.
+  command = "pnpm --filter ./apps/web build"
 
 [build.environment]
   NODE_VERSION = "20"
