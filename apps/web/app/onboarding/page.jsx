@@ -11,6 +11,7 @@ import {
   submitPaymentInfo,
   verifyRciRegistration,
 } from '@/lib/doctorApi'
+import AgreementForm from '@/components/doctor/AgreementForm'
 import { fetchDoctorProfile } from '@/lib/doctorApi'
 
 import { ApiError } from '@/lib/apiClient'
@@ -57,6 +58,9 @@ function OnboardingContent() {
   const [rciNumber, setRciNumber] = useState('')
   const [rciLoading, setRciLoading] = useState(false)
   const [rciError, setRciError] = useState('')
+
+  // Provider agreement: null = not yet known. Step 2 of the wizard; nothing after it opens until it is accepted
+  const [agreementAccepted, setAgreementAccepted] = useState(null)
 
   // JWT Parser (Robust for base64url)
   const parseJwt = (token) => {
@@ -119,18 +123,23 @@ function OnboardingContent() {
     let cancelled = false
     fetchDoctorProfile(doctorAuth.doctorId)
       .then((result) => {
-        if (!cancelled) setRciVerified(Boolean(result?.data?.rciRegistrationId))
+        if (cancelled) return
+        setRciVerified(Boolean(result?.data?.rciRegistrationId))
+        setAgreementAccepted(Boolean(result?.data?.agreementAccepted))
       })
       .catch(() => {
         // Can't tell, so keep the gate closed; the server enforces it regardless
-        if (!cancelled) setRciVerified(false)
+        if (cancelled) return
+        setRciVerified(false)
+        setAgreementAccepted(false)
       })
     return () => { cancelled = true }
   }, [isHydrated, doctorAuth.isAuthed, doctorAuth.doctorId])
 
   useEffect(() => {
     if (rciVerified === false && step !== 1) setStep(1)
-  }, [rciVerified, step])
+    else if (rciVerified && agreementAccepted === false && step > 2) setStep(2)
+  }, [rciVerified, agreementAccepted, step])
 
   const handleVerifyRci = async () => {
     if (!rciNumber.trim()) {
@@ -155,11 +164,11 @@ function OnboardingContent() {
       case 'PERSONAL_INFO_COMPLETE':
         return { step: 1, redirect: null }   // Land on personal info (even if backend says complete)
       case 'PROFESSIONAL_INFO_COMPLETE':
-        return { step: 2, redirect: null }   // Move to professional info
+        return { step: 2, redirect: null }   // Provider agreement, then professional info
       case 'AVAILABILITY_COMPLETE':
-        return { step: 3, redirect: null }   // Move to availability
+        return { step: 4, redirect: null }   // Move to availability
       case 'PAYMENT_INFO_COMPLETE':
-        return { step: 4, redirect: null }   // Move to payment info
+        return { step: 5, redirect: null }   // Move to payment info
       case 'COMPLETE':
         return { step: null, redirect: '/dashboard' }
       case 'EMAIL_VERIFIED':
@@ -283,8 +292,8 @@ function OnboardingContent() {
       }
     }
 
-    if (stepNum === 2) {
-      // Step 2: Professional Info
+    if (stepNum === 3) {
+      // Step 3: Professional Info
       if (!professionalData?.specialty?.trim()) {
         newErrors.specialty = 'Please select a specialty'
       }
@@ -301,8 +310,8 @@ function OnboardingContent() {
       }
     }
 
-    if (stepNum === 3) {
-      // Step 3: Availability
+    if (stepNum === 4) {
+      // Step 4: Availability
       if (!practiceData?.address?.trim() || practiceData.address.trim().length < 5) {
         newErrors.address = 'Address must be at least 5 characters'
       }
@@ -327,8 +336,8 @@ function OnboardingContent() {
       }
     }
 
-    if (stepNum === 4) {
-      // Step 4: Payment Info
+    if (stepNum === 5) {
+      // Step 5: Payment Info
       const fee = Number(paymentData?.consultationFee)
       if (!paymentData?.consultationFee || isNaN(fee) || fee <= 0) {
         newErrors.consultationFee = 'Please enter a valid consultation fee'
@@ -373,7 +382,7 @@ function OnboardingContent() {
           setOnboardingStep(result.data.onboardingStep)
           setStep(2)
         }
-      } else if (stepNum === 2) {
+      } else if (stepNum === 3) {
         // Submit Professional Info
         const apiData = transformProfessionalDetailsToAPI(professionalData)
         const result = await submitProfessionalInfo(doctorId, apiData)
@@ -381,9 +390,9 @@ function OnboardingContent() {
         if (result.success && result.data) {
           updateProfessionalDetails(professionalData)
           setOnboardingStep(result.data.onboardingStep)
-          setStep(3)
+          setStep(4)
         }
-      } else if (stepNum === 3) {
+      } else if (stepNum === 4) {
         // Submit Availability
         const apiData = transformPracticeDetailsToAPI(practiceData)
         const result = await submitAvailability(doctorId, apiData)
@@ -391,9 +400,9 @@ function OnboardingContent() {
         if (result.success && result.data) {
           updatePracticeDetails(practiceData)
           setOnboardingStep(result.data.onboardingStep)
-          setStep(4) // Move to payment info
+          setStep(5) // Move to payment info
         }
-      } else if (stepNum === 4) {
+      } else if (stepNum === 5) {
         // Submit Payment Info (final step)
         const result = await submitPaymentInfo(doctorId, {
           consultationFee: Number(paymentData.consultationFee),
@@ -488,11 +497,12 @@ function OnboardingContent() {
             <div className="text-center">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 {step === 1 && 'Personal Information'}
-                {step === 2 && 'Professional Details'}
-                {step === 3 && 'Practice Details'}
-                {step === 4 && 'Payment Information'}
+                {step === 2 && 'Provider Agreement'}
+                {step === 3 && 'Professional Details'}
+                {step === 4 && 'Practice Details'}
+                {step === 5 && 'Payment Information'}
               </h1>
-              <p className="text-gray-600">Step {step} of 4</p>
+              <p className="text-gray-600">Step {step} of 5</p>
             </div>
           </div>
 
@@ -672,8 +682,21 @@ function OnboardingContent() {
               </div>
             )}
 
-            {/* Step 2: Professional Details */}
+            {/* Step 2: Provider Agreement. Reading and accepting happens inside the form; it moves the wizard on itself */}
             {step === 2 && (
+              <AgreementForm
+                alreadyAccepted={agreementAccepted === true}
+                onAccepted={() => {
+                  setAgreementAccepted(true)
+                  setSubmitError('')
+                  setStep(3)
+                }}
+                onContinue={() => setStep(3)}
+              />
+            )}
+
+            {/* Step 3: Professional Details */}
+            {step === 3 && (
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -748,8 +771,8 @@ function OnboardingContent() {
               </div>
             )}
 
-            {/* Step 3: Practice Details */}
-            {step === 3 && (
+            {/* Step 4: Practice Details */}
+            {step === 4 && (
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -877,8 +900,8 @@ function OnboardingContent() {
               </div>
             )}
 
-            {/* Step 4: Payment Information */}
-            {step === 4 && (
+            {/* Step 5: Payment Information */}
+            {step === 5 && (
               <div className="space-y-6">
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-800">
@@ -984,18 +1007,18 @@ function OnboardingContent() {
                 <ArrowLeft className="w-5 h-5 mr-2" />
                 Back
               </button>
-              <button
+              {step !== 2 && <button
                 onClick={handleNext}
                 disabled={submitLoading || (step === 1 && !rciVerified)}
                 className="flex items-center px-6 py-3 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitLoading
                   ? 'Saving...'
-                  : step === 4
+                  : step === 5
                     ? 'Complete Setup'
                     : 'Next'}
                 {!submitLoading && <ArrowRight className="w-5 h-5 ml-2" />}
-              </button>
+              </button>}
             </div>
           </div>
         </div>
