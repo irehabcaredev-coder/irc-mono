@@ -29,29 +29,29 @@ jobs:
       - name: Ensure target directory exists on VM
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
+          host: ${{ secrets.VM_HOST || vars.VM_HOST }}
+          username: ${{ secrets.VM_USER || vars.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY || vars.VM_SSH_KEY }}
           script: |
             sudo mkdir -p /opt/ecareplus
             sudo chown -R $USER:$USER /opt/ecareplus
       - name: Sync infra files to VM
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
+          host: ${{ secrets.VM_HOST || vars.VM_HOST }}
+          username: ${{ secrets.VM_USER || vars.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY || vars.VM_SSH_KEY }}
           source: "infra/docker-compose.yml,infra/caddy/**"
           target: /opt/ecareplus
           strip_components: 1
       - name: Write .env on VM if provided in secrets
         uses: appleboy/ssh-action@v1.0.3
         env:
-          ENV_CONTENT: ${{ secrets.ENV_FILE }}
+          ENV_CONTENT: ${{ secrets.ENV_FILE || vars.ENV_FILE }}
         with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
+          host: ${{ secrets.VM_HOST || vars.VM_HOST }}
+          username: ${{ secrets.VM_USER || vars.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY || vars.VM_SSH_KEY }}
           envs: ENV_CONTENT
           script: |
             if [ -n "$ENV_CONTENT" ]; then
@@ -61,9 +61,9 @@ jobs:
       - name: Roll out
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
+          host: ${{ secrets.VM_HOST || vars.VM_HOST }}
+          username: ${{ secrets.VM_USER || vars.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY || vars.VM_SSH_KEY }}
           script: |
             cd /opt/ecareplus
             touch .env
