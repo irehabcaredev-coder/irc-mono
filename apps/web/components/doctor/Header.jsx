@@ -15,13 +15,32 @@ export default function Header() {
             <BrandWordmark size="lg" />
           </Link>
 
-          <nav className="hidden md:flex items-center space-x-8">
-            {doctorAuth.isAuthed && (
+          <nav className="flex items-center space-x-4 sm:space-x-6 text-sm font-medium">
+            <Link
+              href="/patients"
+              className="text-gray-700 hover:text-primary-blue transition-colors"
+            >
+              Find Specialists
+            </Link>
+            <Link
+              href="/for-doctors"
+              className="text-gray-700 hover:text-primary-blue transition-colors hidden sm:inline-block"
+            >
+              For Doctors
+            </Link>
+            {doctorAuth.isAuthed ? (
               <Link
                 href="/dashboard"
-                className="text-gray-700 hover:text-primary-blue transition-colors"
+                className="px-3.5 py-1.5 bg-primary-blue text-white rounded-full hover:bg-blue-700 transition-colors text-xs sm:text-sm font-semibold"
               >
                 Dashboard
+              </Link>
+            ) : (
+              <Link
+                href="/auth"
+                className="px-3.5 py-1.5 text-primary-blue border border-primary-blue rounded-full hover:bg-blue-50 transition-colors text-xs sm:text-sm font-semibold"
+              >
+                Doctor Login
               </Link>
             )}
           </nav>

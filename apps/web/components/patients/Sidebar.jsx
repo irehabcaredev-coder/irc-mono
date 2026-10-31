@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { usePatientStore } from '@/store/usePatientStore'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { LayoutDashboard, Calendar, MessageSquare, Settings, ChevronUp } from 'lucide-react'
 
 const tabs = [
@@ -26,6 +26,7 @@ export default function Sidebar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const settingsRef = useRef(null)
   const router = useRouter()
+  const pathname = usePathname()
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -41,9 +42,20 @@ export default function Sidebar() {
     }
   }, [isSettingsOpen])
 
+  const handleTabClick = (tabId) => {
+    if (tabId === 'SAVED_DOCTORS') {
+      router.push('/patients/saved')
+      return
+    }
+    setActiveTab(tabId)
+    if (pathname !== '/patients') {
+      router.push('/patients')
+    }
+  }
+
   const handleUpdateProfile = () => {
     setIsSettingsOpen(false)
-    router.push('/patients/profile') // Assuming this route or we can use a modal
+    router.push('/patients/settings')
   }
 
   const handleDeleteAccount = () => {
@@ -77,7 +89,7 @@ export default function Sidebar() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabClick(tab.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors relative ${isActive
                   ? 'bg-blue-50 text-primary-blue border-l-4 border-accent-red pl-3'
                   : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
@@ -149,7 +161,7 @@ export default function Sidebar() {
                 <button
                   key={tab.id}
                   onClick={() => {
-                    setActiveTab(tab.id)
+                    handleTabClick(tab.id)
                     closeSidebar()
                   }}
                   className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-md transition-colors relative ${isActive

@@ -36,7 +36,7 @@ export default function Header() {
           )}
 
           {/* Logo */}
-          <div className="flex-shrink-0">
+          <Link href="/" className="flex-shrink-0 flex items-center hover:opacity-90 transition-opacity">
             {/* Mobile: Smaller Logo, Desktop: Normal */}
             <div className="sm:hidden transform scale-75 origin-left">
               <BrandWordmark size="md" />
@@ -44,7 +44,7 @@ export default function Header() {
             <div className="hidden sm:block">
               <BrandWordmark size="lg" />
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Right Section: City + Auth */}
