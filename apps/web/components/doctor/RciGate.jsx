@@ -6,6 +6,7 @@ import { BadgeCheck, ShieldAlert } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import { fetchDoctorProfile, verifyRciRegistration } from '@/lib/doctorApi'
 import { ApiError } from '@/lib/apiClient'
+import AgreementForm from './AgreementForm'
 
 function timeLeft(deadline) {
   const ms = new Date(deadline).getTime() - Date.now()
@@ -69,8 +70,8 @@ function RciForm({ onVerified }) {
   )
 }
 
-// Doctors who onboarded before RCI verification existed: a banner during their grace period,
-// a blocking screen once it has passed. Names stay hidden from patients until they verify.
+// Doctors who onboarded before RCI verification and the provider agreement existed: a banner during their grace
+// period, a blocking screen once it has passed. Names stay hidden from patients until they verify their RCI number.
 export default function RciGate({ children }) {
   const queryClient = useQueryClient()
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
@@ -83,25 +84,31 @@ export default function RciGate({ children }) {
   })
 
   const doctor = data?.data
-  const needsRci = doctor && doctor.onboardingStep === 'COMPLETE' && !doctor.rciRegistrationId
-  if (!needsRci) return children
+  const missingRci = !doctor?.rciRegistrationId
+  const missingAgreement = doctor?.agreementAccepted === false
+  const needsAction = doctor && doctor.onboardingStep === 'COMPLETE' && (missingRci || missingAgreement)
+  if (!needsAction) return children
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['doctorProfile', doctorAuth.doctorId] })
-  const remaining = doctor.rciDeadline ? timeLeft(doctor.rciDeadline) : null
+  const remaining = doctor.complianceDeadline ? timeLeft(doctor.complianceDeadline) : null
+  const todo = [missingRci && 'add your RCI registration number', missingAgreement && 'read and accept the provider agreement'].filter(Boolean).join(' and ')
 
-  if (!remaining && doctor.rciDeadline) {
+  // RCI first; the agreement follows once that is done
+  const form = missingRci ? <RciForm onVerified={refresh} /> : <AgreementForm onAccepted={refresh} />
+
+  if (!remaining && doctor.complianceDeadline) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center px-4">
-        <div className="max-w-lg w-full bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
+      <div className="min-h-screen bg-paper flex items-center justify-center px-4 py-10">
+        <div className="max-w-xl w-full bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
           <div className="flex items-center gap-3 mb-3">
             <ShieldAlert className="w-7 h-7 text-accent-red" />
-            <h1 className="text-xl font-bold text-gray-900">RCI verification required</h1>
+            <h1 className="text-xl font-bold text-gray-900">Action required to continue</h1>
           </div>
           <p className="text-gray-600 mb-6">
-            The time to add your Rehabilitation Council of India registration number has passed. Add it to get
-            back into your dashboard. Until then your name stays hidden from patients.
+            The time to {todo} has passed. Complete {missingRci && missingAgreement ? 'both' : 'it'} to get back into your
+            dashboard. Until your RCI number is verified your name stays hidden from patients.
           </p>
-          <RciForm onVerified={refresh} />
+          {form}
           <button type="button" onClick={logout} className="mt-6 text-sm text-gray-500 hover:text-gray-700 underline">
             Sign out
           </button>
@@ -117,12 +124,12 @@ export default function RciGate({ children }) {
           <div className="flex items-start gap-3 mb-3">
             <BadgeCheck className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
             <p className="text-sm text-amber-900">
-              <span className="font-semibold">Add your RCI registration number{remaining ? ` within ${remaining}` : ''}.</span>{' '}
-              It is now required for every doctor. Until you add it, your name is hidden from patients, and your
-              dashboard locks when the time runs out.
+              <span className="font-semibold">Please {todo}{remaining ? ` within ${remaining}` : ''}.</span>{' '}
+              Both are now required for every doctor. {missingRci ? 'Until you add your RCI number your name is hidden from patients, and ' : ''}
+              your dashboard locks when the time runs out.
             </p>
           </div>
-          <RciForm onVerified={refresh} />
+          {form}
         </div>
       </div>
       {children}
