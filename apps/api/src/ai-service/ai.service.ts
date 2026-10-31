@@ -3,14 +3,15 @@ import prisma from '../config/prisma';
 import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from '../utils/httpStatusCodes';
 import { OptionalUser } from '../middlewares/optionalAuth';
-import { complete, streamCompletion, ChatMessage, ContentPart } from './openrouter.client';
-import { ALLOWED_FILE_TYPES, limits, modelFor } from './ai.config';
+import { complete, streamCompletion, ChatMessage, ContentPart } from './llm.client';
+import { ALLOWED_FILE_TYPES, attachmentsEnabled, limits, modelFor } from './ai.config';
 import { LEAD_QUALIFICATION_PROMPT } from './prompts/lead';
 import { getMasterPrompt } from './prompt.service';
 import { leadQualificationSchema } from './ai.schema';
 import { fileMatchesType } from './file-validation';
 
 const TOO_MANY_REQUESTS = 429;
+const SERVICE_UNAVAILABLE = 503;
 const UUID = /^[0-9a-f-]{36}$/i;
 
 export type Attachment = { name: string; mimeType: string; data: Buffer };
@@ -124,6 +125,9 @@ const enforceLimits = async (session: AiSession, hasAttachment: boolean) => {
  */
 export const startTurn = async (session: AiSession, input: TurnInput, signal?: AbortSignal) => {
     const l = limits();
+    if ((input.file || input.imageData) && !attachmentsEnabled()) {
+        throw new AppError('Image and PDF analysis is not available right now. Please describe it in text.', SERVICE_UNAVAILABLE);
+    }
     const attachment = attachmentPart(input);
     await enforceLimits(session, !!attachment);
 
@@ -202,7 +206,7 @@ export const saveAssistantMessage = async (chatId: string, content: string) => {
  * never throws, and sends no name, phone or email to the provider.
  */
 export const qualifyLead = async (leadId: string): Promise<void> => {
-    if (!process.env.OPENROUTER_API_KEY) return;
+    if (!process.env.GLM_KEY) return;
     try {
         const lead = await prisma.lead.findUnique({ where: { id: leadId }, include: { patient: true, doctor: true } });
         if (!lead) return;
