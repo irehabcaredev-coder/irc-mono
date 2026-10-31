@@ -44,3 +44,9 @@ export const onboardingPaymentInfoSchema = z.object({
         bankBeneficiaryName: z.string().min(2),
     }),
 });
+
+export const rciVerifySchema = z.object({
+    body: z.object({
+        registrationNo: z.string().trim().min(3).max(30),
+    }),
+});

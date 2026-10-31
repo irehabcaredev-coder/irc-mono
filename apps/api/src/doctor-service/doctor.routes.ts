@@ -6,6 +6,9 @@ import { FORBIDDEN, NOT_FOUND } from '../utils/httpStatusCodes';
 import validate from '../middlewares/validateResource';
 import { onboardingPersonalInfoSchema, onboardingProfessionalInfoSchema, onboardingAvailabilitySchema, onboardingPaymentInfoSchema } from './doctor.schema';
 import * as doctorService from './doctor.service';
+import * as rciService from './rci.service';
+import { presentDoctor } from './doctorPrivacy';
+import { rciVerifySchema } from './doctor.schema';
 import * as leadService from '../lead-service/lead.service'; // For lead compatibility
 import { signupSchema, loginSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../google-auth-service/auth.schema';
 import { Request, Response } from 'express';
@@ -60,26 +63,36 @@ router.post('/onboarding/verify-otp', validate(verifyOtpSchema), asyncHandler(as
 }));
 
 
+router.post('/onboarding/rci-verify', authenticateJWT, validate(rciVerifySchema), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (req.user?.type !== 'doctor') throw new AppError('Forbidden', FORBIDDEN);
+    const result = await rciService.verifyRegistration(req.user.doctorId, req.body.registrationNo);
+    res.json({ success: true, data: result });
+}));
+
 router.post('/onboarding/personal-info', validate(onboardingPersonalInfoSchema), asyncHandler(async (req: Request, res: Response) => {
     const { doctorId, ...data } = req.body;
+    await rciService.assertRciVerified(doctorId);
     const updated = await doctorService.updateDoctorProfile(doctorId, { ...data, onboardingStep: 'PROFESSIONAL_INFO_COMPLETE' }); 
     res.json({ success: true, data: updated });
 }));
 
 router.post('/onboarding/professional-info', validate(onboardingProfessionalInfoSchema), asyncHandler(async (req: Request, res: Response) => {
     const { doctorId, ...data } = req.body;
+    await rciService.assertRciVerified(doctorId);
     const updated = await doctorService.updateDoctorProfile(doctorId, { ...data, onboardingStep: 'AVAILABILITY_COMPLETE' }); 
     res.json({ success: true, data: updated });
 }));
 
 router.post('/onboarding/availability', validate(onboardingAvailabilitySchema), asyncHandler(async (req: Request, res: Response) => {
     const { doctorId, ...data } = req.body;
+    await rciService.assertRciVerified(doctorId);
     const updated = await doctorService.updateDoctorProfile(doctorId, { ...data, onboardingStep: 'PAYMENT_INFO_COMPLETE' }); 
     res.json({ success: true, data: updated });
 }));
 
 router.post('/onboarding/payment-info', validate(onboardingPaymentInfoSchema), asyncHandler(async (req: Request, res: Response) => {
     const { doctorId, consultationFee, ...bankData } = req.body;
+    await rciService.assertRciVerified(doctorId);
     const doctor = await doctorService.findDoctorById(doctorId);
     if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
 
@@ -134,16 +147,20 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 router.get('/:id/leads', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
      if (req.user?.type !== 'doctor') throw new AppError('Forbidden', FORBIDDEN);
+     await rciService.assertRciCompliant(req.user.doctorId);
      const page = parseInt(req.query.page as string) || 1;
      const limit = parseInt(req.query.limit as string) || 10;
      const result = await leadService.getLeadsForDoctor(req.params.id as string, page, limit);
      res.json({ success: true, ...result });
 }));
 
-router.get('/:id',authenticateJWT, asyncHandler(async (req: Request, res: Response) => {
+router.get('/:id',authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const doctor = await doctorService.findDoctorById(req.params.id as string);
     if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
-    res.json({ success: true, data: doctor });
+    const viewerDoctorId = req.user?.type === 'doctor' ? req.user.doctorId : null;
+    if (viewerDoctorId === doctor.id) await rciService.startRciGraceIfNeeded(doctor);
+    const current = viewerDoctorId === doctor.id ? (await doctorService.findDoctorById(doctor.id)) || doctor : doctor;
+    res.json({ success: true, data: presentDoctor(current, viewerDoctorId) });
 }));
 
 router.post('/:id/view',authenticateJWT, asyncHandler(async (req: Request, res: Response) => {

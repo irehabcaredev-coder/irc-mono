@@ -6,6 +6,8 @@ import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, NOT_FOUND, UNAUTHORIZED, CONFLICT, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
 import * as emailService from '../email-service/email.service';
 import { generateOTP, generateToken } from '../google-auth-service/auth.service';
+import { startRciGraceIfNeeded } from './rci.service';
+import { presentDoctor } from './doctorPrivacy';
 
 export const createDoctor = async (data: any) => {
     try {
@@ -79,6 +81,7 @@ export const loginDoctor = async (data: any) => {
         const isValid = await bcrypt.compare(password, doctor.password);
         if (!isValid) throw new AppError('Invalid credentials', UNAUTHORIZED);
 
+        await startRciGraceIfNeeded(doctor);
         const token = generateToken(doctor.id, doctor.email, 'doctor');
         return { doctor, token };
     } catch (error: any) {
@@ -161,13 +164,14 @@ export const getAllDoctors = async (page: number = 1, limit: number = 10, specia
                     whatsappNumber: true,
                     availableDays: true,
                     viewCount: true,
+                    rciRegistrationId: true,
                 }
             }),
             prisma.doctor.count({ where })
         ]);
 
         return {
-            data: doctors,
+            data: doctors.map((d) => presentDoctor(d)),
             meta: {
                 total,
                 page,
