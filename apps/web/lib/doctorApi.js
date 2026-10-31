@@ -56,6 +56,23 @@ export async function verifyOTP(email, otp) {
 }
 
 /**
+ * Verify the doctor's RCI registration number against the RCI register and link it to this account.
+ * Must succeed before any other onboarding step is accepted. One RCI number can back only one account.
+ * @param {string} registrationNo - RCI registration number
+ * @returns {Promise<{success: boolean, data: {verified: boolean}}>}
+ */
+export async function verifyRciRegistration(registrationNo) {
+  try {
+    return await apiPost('/doctors/onboarding/rci-verify', { registrationNo: registrationNo.trim() })
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+    throw new ApiError('Failed to verify RCI registration', 0, 'UNKNOWN_ERROR')
+  }
+}
+
+/**
  * Step 3: Submit personal information
  * @param {string} doctorId - Doctor UUID
  * @param {object} personalInfo - Personal information object

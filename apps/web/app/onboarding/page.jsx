@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowRight, ArrowLeft } from 'lucide-react'
+import { ArrowRight, ArrowLeft, BadgeCheck } from 'lucide-react'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import {
   submitPersonalInfo,
   submitProfessionalInfo,
   submitAvailability,
   submitPaymentInfo,
+  verifyRciRegistration,
 } from '@/lib/doctorApi'
 import { fetchDoctorProfile } from '@/lib/doctorApi'
 
@@ -50,6 +51,12 @@ function OnboardingContent() {
   const [submitError, setSubmitError] = useState('')
   const [isHydrated, setIsHydrated] = useState(false)
   const hasInitialized = useRef(false)
+
+  // RCI verification gates the whole flow: null = not yet known, false = must verify, true = verified
+  const [rciVerified, setRciVerified] = useState(null)
+  const [rciNumber, setRciNumber] = useState('')
+  const [rciLoading, setRciLoading] = useState(false)
+  const [rciError, setRciError] = useState('')
 
   // JWT Parser (Robust for base64url)
   const parseJwt = (token) => {
@@ -106,6 +113,41 @@ function OnboardingContent() {
   useEffect(() => {
     setIsHydrated(true)
   }, [])
+
+  useEffect(() => {
+    if (!isHydrated || !doctorAuth.isAuthed || !doctorAuth.doctorId) return
+    let cancelled = false
+    fetchDoctorProfile(doctorAuth.doctorId)
+      .then((result) => {
+        if (!cancelled) setRciVerified(Boolean(result?.data?.rciRegistrationId))
+      })
+      .catch(() => {
+        // Can't tell, so keep the gate closed; the server enforces it regardless
+        if (!cancelled) setRciVerified(false)
+      })
+    return () => { cancelled = true }
+  }, [isHydrated, doctorAuth.isAuthed, doctorAuth.doctorId])
+
+  useEffect(() => {
+    if (rciVerified === false && step !== 1) setStep(1)
+  }, [rciVerified, step])
+
+  const handleVerifyRci = async () => {
+    if (!rciNumber.trim()) {
+      setRciError('Enter your RCI registration number')
+      return
+    }
+    setRciError('')
+    setRciLoading(true)
+    try {
+      await verifyRciRegistration(rciNumber)
+      setRciVerified(true)
+    } catch (error) {
+      setRciError(error instanceof ApiError ? error.message : 'Could not verify your RCI number. Please try again.')
+    } finally {
+      setRciLoading(false)
+    }
+  }
 
   // Helper: map backend onboarding step to UI step number
   const getStepFromOnboardingStep = (onboardingStep) => {
@@ -226,7 +268,8 @@ function OnboardingContent() {
     const newErrors = {}
 
     if (stepNum === 1) {
-      // Step 1: Personal Info
+      // Step 1: RCI verification, then Personal Info
+      if (!rciVerified) newErrors.rci = 'Verify your RCI registration number to continue'
       if (!basicData?.name?.trim()) newErrors.name = 'Name is required'
       if (!basicData?.age || basicData?.age < 18 || basicData?.age > 100) {
         newErrors.age = 'Please enter a valid age (18-100)'
@@ -465,6 +508,59 @@ function OnboardingContent() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    RCI Registration Number *
+                  </label>
+                  {rciVerified ? (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm font-medium">
+                      <BadgeCheck className="w-5 h-5" />
+                      RCI registration verified
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          value={rciNumber}
+                          onChange={(e) => {
+                            setRciNumber(e.target.value)
+                            if (rciError) setRciError('')
+                            if (errors.rci) setErrors((prev) => ({ ...prev, rci: null }))
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleVerifyRci()
+                            }
+                          }}
+                          disabled={rciLoading || rciVerified === null}
+                          className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent uppercase"
+                          placeholder="e.g. A12345"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleVerifyRci}
+                          disabled={rciLoading || rciVerified === null}
+                          className="px-6 py-3 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {rciLoading ? 'Verifying...' : 'Verify'}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Your registration must be active with the Rehabilitation Council of India. Each RCI number can be linked to one account only.
+                      </p>
+                    </>
+                  )}
+                  {(rciError || errors.rci) && (
+                    <p className="mt-1 text-sm text-accent-red">{rciError || errors.rci}</p>
+                  )}
+                </div>
+
+                <fieldset
+                  disabled={!rciVerified}
+                  className={`space-y-6 min-w-0 border-0 p-0 m-0 transition-opacity ${rciVerified ? '' : 'opacity-50 pointer-events-none select-none'}`}
+                >
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Name *
                   </label>
                   <input
@@ -572,6 +668,7 @@ function OnboardingContent() {
                     <p className="mt-2 text-sm text-accent-red">{errors.languages}</p>
                   )}
                 </div>
+                </fieldset>
               </div>
             )}
 
@@ -889,7 +986,7 @@ function OnboardingContent() {
               </button>
               <button
                 onClick={handleNext}
-                disabled={submitLoading}
+                disabled={submitLoading || (step === 1 && !rciVerified)}
                 className="flex items-center px-6 py-3 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitLoading
