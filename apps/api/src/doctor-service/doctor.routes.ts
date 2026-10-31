@@ -8,6 +8,7 @@ import { onboardingPersonalInfoSchema, onboardingProfessionalInfoSchema, onboard
 import * as doctorService from './doctor.service';
 import * as rciService from './rci.service';
 import { presentDoctor } from './doctorPrivacy';
+import { assertAgreementAccepted, hasAcceptedCurrent } from '../agreements/agreement.service';
 import { rciVerifySchema } from './doctor.schema';
 import * as leadService from '../lead-service/lead.service'; // For lead compatibility
 import { signupSchema, loginSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../google-auth-service/auth.schema';
@@ -79,6 +80,7 @@ router.post('/onboarding/personal-info', validate(onboardingPersonalInfoSchema),
 router.post('/onboarding/professional-info', validate(onboardingProfessionalInfoSchema), asyncHandler(async (req: Request, res: Response) => {
     const { doctorId, ...data } = req.body;
     await rciService.assertRciVerified(doctorId);
+    await assertAgreementAccepted(doctorId);
     const updated = await doctorService.updateDoctorProfile(doctorId, { ...data, onboardingStep: 'AVAILABILITY_COMPLETE' }); 
     res.json({ success: true, data: updated });
 }));
@@ -86,6 +88,7 @@ router.post('/onboarding/professional-info', validate(onboardingProfessionalInfo
 router.post('/onboarding/availability', validate(onboardingAvailabilitySchema), asyncHandler(async (req: Request, res: Response) => {
     const { doctorId, ...data } = req.body;
     await rciService.assertRciVerified(doctorId);
+    await assertAgreementAccepted(doctorId);
     const updated = await doctorService.updateDoctorProfile(doctorId, { ...data, onboardingStep: 'PAYMENT_INFO_COMPLETE' }); 
     res.json({ success: true, data: updated });
 }));
@@ -93,6 +96,7 @@ router.post('/onboarding/availability', validate(onboardingAvailabilitySchema), 
 router.post('/onboarding/payment-info', validate(onboardingPaymentInfoSchema), asyncHandler(async (req: Request, res: Response) => {
     const { doctorId, consultationFee, ...bankData } = req.body;
     await rciService.assertRciVerified(doctorId);
+    await assertAgreementAccepted(doctorId);
     const doctor = await doctorService.findDoctorById(doctorId);
     if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
 
@@ -147,7 +151,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 router.get('/:id/leads', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
      if (req.user?.type !== 'doctor') throw new AppError('Forbidden', FORBIDDEN);
-     await rciService.assertRciCompliant(req.user.doctorId);
+     await rciService.assertCompliant(req.user.doctorId);
      const page = parseInt(req.query.page as string) || 1;
      const limit = parseInt(req.query.limit as string) || 10;
      const result = await leadService.getLeadsForDoctor(req.params.id as string, page, limit);
@@ -158,9 +162,11 @@ router.get('/:id',authenticateJWT, asyncHandler(async (req: AuthenticatedRequest
     const doctor = await doctorService.findDoctorById(req.params.id as string);
     if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
     const viewerDoctorId = req.user?.type === 'doctor' ? req.user.doctorId : null;
-    if (viewerDoctorId === doctor.id) await rciService.startRciGraceIfNeeded(doctor);
+    if (viewerDoctorId === doctor.id) await rciService.startComplianceGraceIfNeeded(doctor);
     const current = viewerDoctorId === doctor.id ? (await doctorService.findDoctorById(doctor.id)) || doctor : doctor;
-    res.json({ success: true, data: presentDoctor(current, viewerDoctorId) });
+    const data: Record<string, any> = presentDoctor(current, viewerDoctorId);
+    if (viewerDoctorId === doctor.id) data.agreementAccepted = await hasAcceptedCurrent(doctor.id);
+    res.json({ success: true, data });
 }));
 
 router.post('/:id/view',authenticateJWT, asyncHandler(async (req: Request, res: Response) => {

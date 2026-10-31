@@ -3,6 +3,7 @@ import prisma from '../config/prisma';
 import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, CONFLICT, FORBIDDEN, NOT_FOUND } from '../utils/httpStatusCodes';
 import { hashRegistrationNo, normalizeRegistrationNo } from '../utils/rciCrypto';
+import { hasAcceptedCurrent } from '../agreements/agreement.service';
 
 const REGISTRATION_NO_FORMAT = /^[A-Z0-9/-]{3,20}$/;
 
@@ -64,28 +65,31 @@ export const assertRciVerified = async (doctorId: string) => {
     if (!doctor.rciRegistrationId) throw new AppError('Verify your RCI registration number before continuing.', FORBIDDEN);
 };
 
-export const RCI_GRACE_MS = 2 * 24 * 60 * 60 * 1000;
+export const GRACE_MS = 2 * 24 * 60 * 60 * 1000;
+
+const isCompliant = async (doctor: { id: string; rciRegistrationId: string | null }) =>
+    !!doctor.rciRegistrationId && (await hasAcceptedCurrent(doctor.id));
 
 /**
- * Doctors who finished onboarding before RCI verification existed get RCI_GRACE_MS from their first login to
- * add it. The deadline is set once and never extended.
+ * Doctors who finished onboarding before RCI verification and the provider agreement existed get GRACE_MS from their
+ * first login to complete both. One shared deadline, set once and never extended.
  */
-export const startRciGraceIfNeeded = async (doctor: { id: string; onboardingStep: OnboardingStep; rciRegistrationId: string | null; rciDeadline: Date | null }) => {
-    if (doctor.onboardingStep !== OnboardingStep.COMPLETE || doctor.rciRegistrationId || doctor.rciDeadline) return;
+export const startComplianceGraceIfNeeded = async (doctor: { id: string; onboardingStep: OnboardingStep; rciRegistrationId: string | null; complianceDeadline: Date | null }) => {
+    if (doctor.onboardingStep !== OnboardingStep.COMPLETE || doctor.complianceDeadline || (await isCompliant(doctor))) return;
     await prisma.doctor.updateMany({
-        where: { id: doctor.id, rciDeadline: null, rciRegistrationId: null },
-        data: { rciDeadline: new Date(Date.now() + RCI_GRACE_MS) },
+        where: { id: doctor.id, complianceDeadline: null },
+        data: { complianceDeadline: new Date(Date.now() + GRACE_MS) },
     });
 };
 
-/** Blocks a finished doctor who still has no RCI verification once their grace period is over. */
-export const assertRciCompliant = async (doctorId: string) => {
+/** Blocks a finished doctor who is still missing RCI verification or the agreement once their grace period is over. */
+export const assertCompliant = async (doctorId: string) => {
     const doctor = await prisma.doctor.findUnique({
         where: { id: doctorId },
-        select: { onboardingStep: true, rciRegistrationId: true, rciDeadline: true },
+        select: { id: true, onboardingStep: true, rciRegistrationId: true, complianceDeadline: true },
     });
-    if (!doctor || doctor.rciRegistrationId || doctor.onboardingStep !== OnboardingStep.COMPLETE) return;
-    if (doctor.rciDeadline && doctor.rciDeadline.getTime() <= Date.now()) {
-        throw new AppError('Your RCI verification deadline has passed. Add your RCI registration number to continue.', FORBIDDEN);
+    if (!doctor || doctor.onboardingStep !== OnboardingStep.COMPLETE || (await isCompliant(doctor))) return;
+    if (doctor.complianceDeadline && doctor.complianceDeadline.getTime() <= Date.now()) {
+        throw new AppError('Your deadline has passed. Add your RCI registration number and accept the provider agreement to continue.', FORBIDDEN);
     }
 };

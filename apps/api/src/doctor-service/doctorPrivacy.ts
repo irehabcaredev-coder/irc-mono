@@ -19,7 +19,7 @@ export const presentDoctor = <T extends Record<string, any>>(doctor: T, viewerDo
         out.rciVerified = verified;
         if (!isOwner) {
             delete out.rciRegistrationId;
-            delete out.rciDeadline;
+            delete out.complianceDeadline;
             if (!verified) out.name = HIDDEN_NAME;
         }
     }

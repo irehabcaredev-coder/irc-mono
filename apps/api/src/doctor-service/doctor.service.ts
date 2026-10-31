@@ -6,7 +6,7 @@ import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, NOT_FOUND, UNAUTHORIZED, CONFLICT, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
 import * as emailService from '../email-service/email.service';
 import { generateOTP, generateToken } from '../google-auth-service/auth.service';
-import { startRciGraceIfNeeded } from './rci.service';
+import { startComplianceGraceIfNeeded } from './rci.service';
 import { presentDoctor } from './doctorPrivacy';
 
 export const createDoctor = async (data: any) => {
@@ -81,7 +81,7 @@ export const loginDoctor = async (data: any) => {
         const isValid = await bcrypt.compare(password, doctor.password);
         if (!isValid) throw new AppError('Invalid credentials', UNAUTHORIZED);
 
-        await startRciGraceIfNeeded(doctor);
+        await startComplianceGraceIfNeeded(doctor);
         const token = generateToken(doctor.id, doctor.email, 'doctor');
         return { doctor, token };
     } catch (error: any) {
