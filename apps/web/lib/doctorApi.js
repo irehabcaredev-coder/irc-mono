@@ -56,6 +56,37 @@ export async function verifyOTP(email, otp) {
 }
 
 /**
+ * The current Provider Registration & Compliance Agreement. Public: readable before anyone signs up.
+ * @returns {Promise<{success: boolean, data: {version: string, title: string, content: string, attestations: string[], contentHash: string}}>}
+ */
+export async function fetchProviderAgreement() {
+  try {
+    return await apiGet('/agreements/provider', { skipAuth: true })
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+    throw new ApiError('Failed to load the agreement', 0, 'UNKNOWN_ERROR')
+  }
+}
+
+/**
+ * Record the signed-in doctor's acceptance of the agreement they just read.
+ * @param {{version: string, contentHash: string, attestations: boolean[], signatureName: string}} acceptance
+ * @returns {Promise<{success: boolean, data: {acceptedAt: string, version: string}}>}
+ */
+export async function acceptProviderAgreement(acceptance) {
+  try {
+    return await apiPost('/agreements/provider/accept', acceptance)
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+    throw new ApiError('Failed to record your acceptance', 0, 'UNKNOWN_ERROR')
+  }
+}
+
+/**
  * Verify the doctor's RCI registration number against the RCI register and link it to this account.
  * Must succeed before any other onboarding step is accepted. One RCI number can back only one account.
  * @param {string} registrationNo - RCI registration number
