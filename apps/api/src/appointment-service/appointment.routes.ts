@@ -5,6 +5,7 @@ import { authenticateJWT } from '../middlewares/auth.middleware';
 import asyncHandler from '../utils/asyncHandler';
 import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, FORBIDDEN } from '../utils/httpStatusCodes';
+import { assertRciCompliant } from '../doctor-service/rci.service';
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ router.post('/schedule', authenticateJWT, asyncHandler(async (req: any, res: any
 
     const { patientId, scheduledAt, scheduledEnd, meetingName } = req.body;
     const doctorId = req.user.id;
+    await assertRciCompliant(doctorId);
 
     if (!patientId || !scheduledAt || !scheduledEnd || !meetingName) {
         throw new AppError('Missing required fields', BAD_REQUEST);
@@ -28,6 +30,7 @@ router.get('/doctor/my-appointments', authenticateJWT, asyncHandler(async (req: 
     if (req.user?.type !== 'doctor') {
         throw new AppError('Forbidden', FORBIDDEN);
     }
+    await assertRciCompliant(req.user.id);
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const result = await appointmentService.getDoctorAppointments(req.user.id, page, limit);
