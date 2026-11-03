@@ -66,7 +66,9 @@ export async function apiRequest(endpoint, options = {}) {
   // Determine which token to use
   let token = null
   if (typeof window !== 'undefined') {
-    if (options.usePatientToken) {
+    if (options.useAdminToken) {
+      token = localStorage.getItem('admin_token')
+    } else if (options.usePatientToken) {
       token = localStorage.getItem('patient_token')
     } else {
       token = localStorage.getItem('doctor_token')
@@ -81,6 +83,7 @@ export async function apiRequest(endpoint, options = {}) {
     '/patients/onboarding/auth',
     '/doctors/onboarding/verify-otp',
     '/patients/onboarding/verify-otp',
+    '/admin/login',
   ]
 
   // Check if endpoint is public
@@ -88,8 +91,10 @@ export async function apiRequest(endpoint, options = {}) {
     PUBLIC_ENDPOINTS.includes(endpoint) || 
     endpoint.includes('/auth/google')
 
+  // A FormData body needs the browser to set the multipart Content-Type (with its boundary)
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...options.headers,
   }
 
@@ -180,13 +185,17 @@ export async function apiRequest(endpoint, options = {}) {
       // Drop it and everything persisted from it, then send the user to sign in again.
       if (typeof window !== 'undefined' && token && data && data.error === 'INVALID_TOKEN') {
         try {
-          const patient = !!options.usePatientToken
-          localStorage.removeItem(patient ? 'patient_token' : 'doctor_token')
-          localStorage.removeItem(patient ? 'patient-store' : 'doctor-storage')
+          if (options.useAdminToken) {
+            localStorage.removeItem('admin_token')
+          } else {
+            const patient = !!options.usePatientToken
+            localStorage.removeItem(patient ? 'patient_token' : 'doctor_token')
+            localStorage.removeItem(patient ? 'patient-store' : 'doctor-storage')
+          }
         } catch (e) {
           // Storage unavailable; the redirect still forces a fresh sign-in
         }
-        window.location.assign(options.usePatientToken ? '/' : '/auth')
+        window.location.assign(options.useAdminToken ? '/admin/login' : options.usePatientToken ? '/' : '/auth')
       }
 
       throw apiError
@@ -238,6 +247,25 @@ export async function apiRequest(endpoint, options = {}) {
     
     throw networkError
   }
+}
+
+/**
+ * POST a multipart form (file upload)
+ */
+export async function apiPostForm(endpoint, formData, options = {}) {
+  return apiRequest(endpoint, { ...options, method: 'POST', body: formData })
+}
+
+/**
+ * Fetches a binary response (e.g. an uploaded card) with the admin token and returns it as a Blob
+ */
+export async function apiGetBlob(endpoint) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null
+  const response = await fetch(`${getBaseUrl()}${endpoint}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) throw new ApiError('Could not load the file', response.status, 'UNKNOWN_ERROR')
+  return response.blob()
 }
 
 /**
