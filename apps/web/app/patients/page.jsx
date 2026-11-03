@@ -180,7 +180,7 @@ function PatientsContent() {
         docs = response
       } else if (response.data && Array.isArray(response.data)) {
         docs = response.data
-        total = response.count || 0
+        total = response.count || response.meta?.total || 0
       } else if (response.data) {
         // Maybe response.data IS the array (if apiGet returns body directly)
         docs = Array.isArray(response.data) ? response.data : []

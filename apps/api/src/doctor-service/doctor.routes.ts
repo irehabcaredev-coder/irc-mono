@@ -1,5 +1,6 @@
 
 import { Router } from 'express';
+import multer from 'multer';
 import asyncHandler from '../utils/asyncHandler';
 import { AppError } from '../utils/AppError';
 import { FORBIDDEN, NOT_FOUND } from '../utils/httpStatusCodes';
@@ -12,10 +13,20 @@ import { assertAgreementAccepted, hasAcceptedCurrent } from '../agreements/agree
 import { rciVerifySchema } from './doctor.schema';
 import * as leadService from '../lead-service/lead.service'; // For lead compatibility
 import { signupSchema, loginSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../google-auth-service/auth.schema';
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { authenticateJWT, AuthenticatedRequest } from '../middlewares/auth.middleware'; // Import Auth Middleware
 
 const router = Router();
+
+// The card is held in memory just long enough to validate and store it
+const cardUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: rciService.MAX_CARD_BYTES, files: 1 } });
+const uploadCard = (req: Request, res: Response, next: NextFunction) =>
+    cardUpload.single('card')(req, res, (err: unknown) => {
+        if (err instanceof multer.MulterError) {
+            return next(new AppError(err.code === 'LIMIT_FILE_SIZE' ? 'The file is too large. The limit is 5 MB.' : err.message, 400));
+        }
+        next(err);
+    });
 
 // Wrap async functions
 // Wrap async functions - using imported asyncHandler
@@ -68,6 +79,18 @@ router.post('/onboarding/rci-verify', authenticateJWT, validate(rciVerifySchema)
     if (req.user?.type !== 'doctor') throw new AppError('Forbidden', FORBIDDEN);
     const result = await rciService.verifyRegistration(req.user.doctorId, req.body.registrationNo);
     res.json({ success: true, data: result });
+}));
+
+router.post('/onboarding/rci-card', authenticateJWT, uploadCard, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (req.user?.type !== 'doctor') throw new AppError('Forbidden', FORBIDDEN);
+    const registrationNo = typeof req.body?.registrationNo === 'string' ? req.body.registrationNo : undefined;
+    const submission = await rciService.submitCard(req.user.doctorId, req.file, registrationNo);
+    res.status(201).json({ success: true, data: submission });
+}));
+
+router.get('/onboarding/rci-card', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (req.user?.type !== 'doctor') throw new AppError('Forbidden', FORBIDDEN);
+    res.json({ success: true, data: await rciService.getCardStatus(req.user.doctorId) });
 }));
 
 router.post('/onboarding/personal-info', validate(onboardingPersonalInfoSchema), asyncHandler(async (req: Request, res: Response) => {
@@ -146,11 +169,12 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     const specialty = req.query.specialty as string | undefined;
     const sortByParam = req.query.sortBy as string | undefined;
     const sortBy = VALID_DOCTOR_SORT_OPTIONS.includes(sortByParam || '') ? sortByParam : undefined;
-    const result = await doctorService.getAllDoctors(page, limit, specialty, sortBy);
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const result = await doctorService.getAllDoctors(page, limit, specialty, sortBy, search);
     res.json({ success: true, ...result });
 }));
 router.get('/:id/leads', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-     if (req.user?.type !== 'doctor') throw new AppError('Forbidden', FORBIDDEN);
+     if (req.user?.type !== 'doctor' || req.user.doctorId !== req.params.id) throw new AppError('Forbidden', FORBIDDEN);
      await rciService.assertCompliant(req.user.doctorId);
      const page = parseInt(req.query.page as string) || 1;
      const limit = parseInt(req.query.limit as string) || 10;
