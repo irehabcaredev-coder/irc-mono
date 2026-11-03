@@ -15,10 +15,11 @@ export const presentDoctor = <T extends Record<string, any>>(doctor: T, viewerDo
     if (!isOwner) for (const f of PRIVATE_FIELDS) delete out[f];
 
     if ('rciRegistrationId' in doctor) {
-        const verified = !!doctor.rciRegistrationId;
+        const verified = !!doctor.rciRegistrationId || !!doctor.rciCardVerifiedAt;
         out.rciVerified = verified;
         if (!isOwner) {
             delete out.rciRegistrationId;
+            delete out.rciCardVerifiedAt;
             delete out.complianceDeadline;
             if (!verified) out.name = HIDDEN_NAME;
         }
