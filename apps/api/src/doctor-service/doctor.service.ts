@@ -131,10 +131,34 @@ const buildDoctorOrderBy = (sortBy?: string) => {
     }
 };
 
-export const getAllDoctors = async (page: number = 1, limit: number = 10, specialty?: string, sortBy?: string) => {
+// Every word of the query must match somewhere on the doctor (city, locality, state, address, specialty, or name),
+// so "mumbai" or "speech therapist pune" narrow the list instead of being ignored.
+// A name only matches for RCI-verified doctors: unverified names are hidden from the public.
+const buildSearchFilter = (search: string) => {
+    const terms = search.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean).slice(0, 6);
+    return terms.map((term) => {
+        const contains = { contains: term, mode: 'insensitive' as const };
+        return {
+            OR: [
+                { city: contains },
+                { locality: contains },
+                { state: contains },
+                { address: contains },
+                { specialty: contains },
+                { AND: [{ name: contains }, { OR: [{ rciRegistrationId: { not: null } }, { rciCardVerifiedAt: { not: null } }] }] },
+            ],
+        };
+    });
+};
+
+export const getAllDoctors = async (page: number = 1, limit: number = 10, specialty?: string, sortBy?: string, search?: string) => {
     try {
         const skip = (page - 1) * limit;
         const where: any = {};
+
+        if (search && search.trim()) {
+            where.AND = buildSearchFilter(search);
+        }
 
         if (specialty) {
             where.specialty = {
@@ -165,6 +189,7 @@ export const getAllDoctors = async (page: number = 1, limit: number = 10, specia
                     availableDays: true,
                     viewCount: true,
                     rciRegistrationId: true,
+                    rciCardVerifiedAt: true,
                 }
             }),
             prisma.doctor.count({ where })
