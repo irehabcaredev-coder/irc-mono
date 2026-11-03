@@ -1,4 +1,4 @@
-import { apiPost, apiGet, ApiError } from './apiClient'
+import { apiPost, apiGet, apiPostForm, ApiError } from './apiClient'
 
 /**
  * Doctor Onboarding API Functions
@@ -101,6 +101,26 @@ export async function verifyRciRegistration(registrationNo) {
     }
     throw new ApiError('Failed to verify RCI registration', 0, 'UNKNOWN_ERROR')
   }
+}
+
+/**
+ * Upload a photo/PDF of the RCI card for admin review (for registrations not in our register)
+ * @param {File} file - JPG, PNG or PDF, max 5 MB
+ * @param {string} registrationNo - Optional: the number printed on the card
+ */
+export async function uploadRciCard(file, registrationNo) {
+  const form = new FormData()
+  form.append('card', file)
+  if (registrationNo && registrationNo.trim()) form.append('registrationNo', registrationNo.trim())
+  return await apiPostForm('/doctors/onboarding/rci-card', form)
+}
+
+/**
+ * Latest RCI card upload of the signed-in doctor: { status: 'PENDING' | 'APPROVED' | 'REJECTED', reviewNote } or null
+ */
+export async function fetchRciCardStatus() {
+  const response = await apiGet('/doctors/onboarding/rci-card')
+  return response.data || null
 }
 
 /**
