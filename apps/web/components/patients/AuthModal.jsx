@@ -26,6 +26,7 @@ export default function AuthModal() {
     clearPendingAction,
     setActiveTab,
     setTempPatientId,
+    tempPatientId,
   } = usePatientStore()
 
   const [email, setEmail] = useState('')
@@ -297,7 +298,9 @@ export default function AuthModal() {
       return
     }
 
-    if (!patientId) {
+    // Local state is lost on a page reload (common on mobile) while the persisted store keeps the step
+    const activePatientId = patientId || tempPatientId
+    if (!activePatientId) {
       setPhoneError('Registration session expired. Please start over.')
       return
     }
@@ -308,7 +311,7 @@ export default function AuthModal() {
       // Format phone number with country code
       const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`
 
-      const result = await submitPatientPersonalInfo(patientId, {
+      const result = await submitPatientPersonalInfo(activePatientId, {
         name: name.trim(),
         phone: formattedPhone,
         gender: mapGenderToAPI(gender),
@@ -320,7 +323,7 @@ export default function AuthModal() {
 
       if (result.success && result.data) {
         const data = result.data
-        const finalPatientId = data.patientId || data.id || data.userId || patientId // Fallback to state patientId
+        const finalPatientId = data.patientId || data.id || data.userId || activePatientId // Fallback to state patientId
         const { email: patientEmail, name: patientName } = data
 
         console.log('Registration complete, finalPatientId:', finalPatientId)
