@@ -96,7 +96,8 @@ export const getLeadsForDoctor = async (doctorId: string, page: number = 1, limi
         const [leads, total] = await Promise.all([
             prisma.lead.findMany({
                 where: { doctorId },
-                include: { patient: true },
+                // Only what a doctor needs to follow up; never credentials or OTP state
+                include: { patient: { select: { id: true, name: true, phone: true, city: true, state: true, age: true, gender: true, issues: true } } },
                 orderBy: { viewedAt: 'desc' },
                 skip,
                 take: limit
