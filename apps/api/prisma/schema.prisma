@@ -94,12 +94,14 @@ model Doctor {
     // RCI verification: unique, so one registration can back only one doctor account
     rciRegistrationId String?          @unique
     rciRegistration   RciRegistration? @relation(fields: [rciRegistrationId], references: [id], onDelete: SetNull)
+    rciCardVerifiedAt  DateTime? // set when an admin approved an uploaded RCI card: verified without a register match
     complianceDeadline DateTime? // doctors onboarded before RCI/agreement existed: set at their first login, they have until then to complete both
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     agreementAcceptances AgreementAcceptance[]
+    rciCardSubmissions   RciCardSubmission[]
     savedByPatients Patient[]     @relation("SavedDoctors")
     leads           Lead[] // Patients who viewed this doctor's profile
     appointments    Appointment[]
@@ -309,4 +311,38 @@ model AgreementAcceptance {
 
     @@unique([doctorId, agreementId])
     @@index([agreementId])
+}
+
+enum RciCardStatus {
+    PENDING
+    APPROVED
+    REJECTED
+}
+
+// A photo/scan of a doctor's RCI card, for doctors whose registration is not in the imported register (older cards).
+// An admin reviews it; approval sets Doctor.rciCardVerifiedAt. The file is only ever served to admins.
+model RciCardSubmission {
+    id             String        @id @default(uuid())
+    doctorId       String
+    doctor         Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+    registrationNo String? // what the doctor typed, as a reviewer hint
+    fileName       String
+    mimeType       String
+    size           Int
+    data           String // base64: the pg driver adapter cannot read Bytes columns back
+    status         RciCardStatus @default(PENDING)
+    reviewNote     String?
+    reviewedBy     String? // admin email
+    reviewedAt     DateTime?
+    createdAt      DateTime      @default(now())
+
+    @@index([doctorId])
+    @@index([status, createdAt])
+}
+
+model Admin {
+    id           String   @id @default(uuid())
+    email        String   @unique
+    passwordHash String
+    createdAt    DateTime @default(now())
 }
