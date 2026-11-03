@@ -81,6 +81,7 @@ export default function LeadsPage() {
     patientId: event.patientId,
     patientName: event.patient?.name,
     patientCity: event.patient?.city,
+    patientPhone: event.patient?.phone,
     createdAt: event.createdAt || event.viewedAt // Use createdAt or fallback to viewedAt
   }))
 
@@ -189,6 +190,15 @@ export default function LeadsPage() {
                                     <p className="text-sm sm:text-base text-gray-900 font-medium truncate">
                                       {event.patientName}
                                     </p>
+                                    {event.patientPhone && (
+                                      <a
+                                        href={`tel:${event.patientPhone}`}
+                                        className="inline-flex items-center text-xs sm:text-sm text-primary-blue hover:underline"
+                                      >
+                                        <Phone className="w-3 h-3 mr-1.5" />
+                                        {event.patientPhone}
+                                      </a>
+                                    )}
                                     {event.patientCity && (
                                       <p className="text-xs sm:text-sm text-gray-600 truncate">
                                         {event.patientCity}
