@@ -138,6 +138,7 @@ function DashboardContent() {
     patientId: event.patientId,
     patientName: event.patient?.name,
     patientCity: event.patient?.city,
+    patientPhone: event.patient?.phone,
     createdAt: event.createdAt || event.viewedAt // Use createdAt or fallback to viewedAt
   }))
 
@@ -166,28 +167,6 @@ function DashboardContent() {
         return 'text-primary-blue'
     }
   }
-
-  const calculateProfileCompleteness = () => {
-    const fields = [
-      doctorProfile.basic?.name,
-      doctorProfile.basic?.age,
-      doctorProfile.basic?.gender,
-      doctorProfile.basic?.languages?.length > 0,
-      doctorProfile.basic?.phone,
-      doctorProfile.professional?.specialty,
-      doctorProfile.professional?.yearsOfExperience,
-      doctorProfile.professional?.recentGraduation,
-      doctorProfile.practice?.address,
-      doctorProfile.practice?.city,
-      doctorProfile.practice?.availableDays?.length > 0,
-      doctorProfile.practice?.timings?.from,
-      doctorProfile.practice?.timings?.to,
-    ]
-    const filled = fields.filter(Boolean).length
-    return Math.round((filled / fields.length) * 100)
-  }
-
-  const completeness = calculateProfileCompleteness()
 
   if (!isHydrated) {
     return (
@@ -239,26 +218,7 @@ function DashboardContent() {
             <p className="text-sm sm:text-base text-gray-600">Welcome back, {doctorProfile.basic?.name || 'Doctor'}</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-            {/* Profile Completeness Card */}
-            <div className="lg:col-span-2 bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Profile Completeness</h2>
-                <span className="text-xl sm:text-2xl font-bold text-primary-blue">{completeness}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-                <div
-                  className="bg-primary-blue h-3 rounded-full transition-all duration-500"
-                  style={{ width: `${completeness}%` }}
-                />
-              </div>
-              <p className="text-xs sm:text-sm text-gray-600">
-                {completeness < 100
-                  ? 'Complete your profile to get more visibility and leads.'
-                  : 'Your profile is complete! Keep it updated to maintain visibility.'}
-              </p>
-            </div>
-
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8">
             {/* Quick Stats */}
             <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Quick Stats</h2>
@@ -369,6 +329,7 @@ function DashboardContent() {
                             {event.patientName ? (
                               <>
                                 {event.patientName}
+                                {event.patientPhone && ` • ${event.patientPhone}`}
                                 {event.patientCity && ` • ${event.patientCity}`}
                               </>
                             ) : (

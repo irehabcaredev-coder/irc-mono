@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useDoctorStore } from '@/store/useDoctorStore'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
 
+import ProfileCompleteness from '@/components/doctor/ProfileCompleteness'
 import { LogOut } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -63,6 +64,8 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-4 sm:space-y-6">
+            <ProfileCompleteness />
+
             {/* Account Settings */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Account</h2>
