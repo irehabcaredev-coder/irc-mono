@@ -8,6 +8,7 @@ import session from 'express-session';
 import passport from 'passport';
 import authRoutes from './google-auth-service/auth.routes';
 import doctorRoutes from './doctor-service/doctor.routes';
+import adminRoutes from './admin-service/admin.routes';
 import agreementRoutes from './agreements/agreement.routes';
 import patientRoutes from './patient-service/patient.routes';
 import leadRoutes from './lead-service/lead.routes';
@@ -58,6 +59,7 @@ app.use(express.json());
 // Routes
 app.use('/auth', authRoutes);
 app.use('/doctors', doctorRoutes);
+app.use('/admin', adminRoutes);
 app.use('/agreements', agreementRoutes);
 app.use('/patients', patientRoutes);
 app.use('/leads', leadRoutes);
