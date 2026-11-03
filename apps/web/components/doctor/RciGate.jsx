@@ -7,6 +7,7 @@ import { useDoctorStore } from '@/store/useDoctorStore'
 import { fetchDoctorProfile, verifyRciRegistration } from '@/lib/doctorApi'
 import { ApiError } from '@/lib/apiClient'
 import AgreementForm from './AgreementForm'
+import RciCardUpload from './RciCardUpload'
 
 function timeLeft(deadline) {
   const ms = new Date(deadline).getTime() - Date.now()
@@ -23,6 +24,7 @@ function RciForm({ onVerified }) {
   const [value, setValue] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notFound, setNotFound] = useState(false)
 
   const submit = async () => {
     if (!value.trim()) {
@@ -30,11 +32,13 @@ function RciForm({ onVerified }) {
       return
     }
     setError('')
+    setNotFound(false)
     setLoading(true)
     try {
       await verifyRciRegistration(value)
       await onVerified()
     } catch (e) {
+      setNotFound(e instanceof ApiError && e.status === 404)
       setError(e instanceof ApiError ? e.message : 'Could not verify your RCI number. Please try again.')
     } finally {
       setLoading(false)
@@ -66,6 +70,9 @@ function RciForm({ onVerified }) {
         </button>
       </div>
       {error && <p className="mt-2 text-sm text-accent-red">{error}</p>}
+      <div className="mt-4">
+        <RciCardUpload registrationNo={value} expanded={notFound} onApproved={onVerified} />
+      </div>
     </div>
   )
 }
@@ -84,7 +91,7 @@ export default function RciGate({ children }) {
   })
 
   const doctor = data?.data
-  const missingRci = !doctor?.rciRegistrationId
+  const missingRci = !doctor?.rciVerified
   const missingAgreement = doctor?.agreementAccepted === false
   const needsAction = doctor && doctor.onboardingStep === 'COMPLETE' && (missingRci || missingAgreement)
   if (!needsAction) return children

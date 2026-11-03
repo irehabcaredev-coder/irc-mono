@@ -12,6 +12,7 @@ import {
   verifyRciRegistration,
 } from '@/lib/doctorApi'
 import AgreementForm from '@/components/doctor/AgreementForm'
+import RciCardUpload from '@/components/doctor/RciCardUpload'
 import { fetchDoctorProfile } from '@/lib/doctorApi'
 
 import { ApiError } from '@/lib/apiClient'
@@ -58,6 +59,7 @@ function OnboardingContent() {
   const [rciNumber, setRciNumber] = useState('')
   const [rciLoading, setRciLoading] = useState(false)
   const [rciError, setRciError] = useState('')
+  const [rciNotFound, setRciNotFound] = useState(false)
 
   // Provider agreement: null = not yet known. Step 2 of the wizard; nothing after it opens until it is accepted
   const [agreementAccepted, setAgreementAccepted] = useState(null)
@@ -124,7 +126,7 @@ function OnboardingContent() {
     fetchDoctorProfile(doctorAuth.doctorId)
       .then((result) => {
         if (cancelled) return
-        setRciVerified(Boolean(result?.data?.rciRegistrationId))
+        setRciVerified(Boolean(result?.data?.rciVerified))
         setAgreementAccepted(Boolean(result?.data?.agreementAccepted))
       })
       .catch(() => {
@@ -147,11 +149,13 @@ function OnboardingContent() {
       return
     }
     setRciError('')
+    setRciNotFound(false)
     setRciLoading(true)
     try {
       await verifyRciRegistration(rciNumber)
       setRciVerified(true)
     } catch (error) {
+      setRciNotFound(error instanceof ApiError && error.status === 404)
       setRciError(error instanceof ApiError ? error.message : 'Could not verify your RCI number. Please try again.')
     } finally {
       setRciLoading(false)
@@ -562,6 +566,11 @@ function OnboardingContent() {
                   )}
                   {(rciError || errors.rci) && (
                     <p className="mt-1 text-sm text-accent-red">{rciError || errors.rci}</p>
+                  )}
+                  {rciVerified === false && (
+                    <div className="mt-4">
+                      <RciCardUpload registrationNo={rciNumber} expanded={rciNotFound} onApproved={() => setRciVerified(true)} />
+                    </div>
                   )}
                 </div>
 
