@@ -320,7 +320,7 @@ export async function fetchDoctorProfile(doctorId, options = {}) {
  * @param {number} options.limit - Items per page (default 10)
  * @returns {Promise<{success: boolean, data: array, count: number}>}
  */
-export async function fetchAllDoctors({ page = 1, limit = 10, search, specialty, mode, lang, saved, sortBy } = {}) {
+export async function fetchAllDoctors({ page = 1, limit = 10, search, specialty, mode, lang, saved, sortBy, verified } = {}) {
   try {
     const params = new URLSearchParams()
     params.append('page', page)
@@ -332,6 +332,7 @@ export async function fetchAllDoctors({ page = 1, limit = 10, search, specialty,
     if (lang) params.append('lang', lang)
     if (saved) params.append('saved', saved)
     if (sortBy) params.append('sortBy', sortBy)
+    if (verified) params.append('verified', 'true')
 
     const response = await apiGet(`/doctors?${params.toString()}`, {
       skipAuth: false,

@@ -22,7 +22,7 @@ export default function BestDoctors() {
   const { data, isLoading } = useQuery({
     queryKey: ['landingTopDoctors'],
     queryFn: async () => {
-      const response = await fetchAllDoctors({ page: 1, limit: 6, sortBy: 'experience_desc' })
+      const response = await fetchAllDoctors({ page: 1, limit: 6, sortBy: 'experience_desc', verified: true })
       const docs = Array.isArray(response) ? response : response?.data || []
       return docs.map(transformApiDoctorToCard).filter(Boolean)
     },
