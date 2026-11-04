@@ -151,13 +151,17 @@ const buildSearchFilter = (search: string) => {
     });
 };
 
-export const getAllDoctors = async (page: number = 1, limit: number = 10, specialty?: string, sortBy?: string, search?: string) => {
+export const getAllDoctors = async (page: number = 1, limit: number = 10, specialty?: string, sortBy?: string, search?: string, verifiedOnly?: boolean) => {
     try {
         const skip = (page - 1) * limit;
         const where: any = {};
 
         if (search && search.trim()) {
             where.AND = buildSearchFilter(search);
+        }
+
+        if (verifiedOnly) {
+            where.OR = [{ rciRegistrationId: { not: null } }, { rciCardVerifiedAt: { not: null } }];
         }
 
         if (specialty) {
