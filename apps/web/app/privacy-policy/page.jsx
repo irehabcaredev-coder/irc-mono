@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import Header from '@/components/doctor/Header'
 import LandingFooter from '@/components/LandingFooter'
 import Link from 'next/link'
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS_LINES } from '@/lib/contact'
 
 const privacyPolicyText = `
 # PRIVACY POLICY
@@ -166,7 +167,7 @@ You have the right to:
 - Nominate a representative (as per law)
 
 Requests may be sent to:  
-📧 support@irehabcare.com
+📧 ${CONTACT_EMAIL}
 
 We will respond within reasonable timelines as required by law.
 
@@ -184,12 +185,11 @@ In accordance with the Information Technology Act and Intermediary Guidelines Ru
 
 **Grievance Officer Name:** [To Be Appointed]  
 **Company:** Fambience Private Limited  
-**Email:** support@irehabcare.com  
+**Email:** ${CONTACT_EMAIL}  
+**Phone:** ${CONTACT_PHONE}  
 
 **Registered Address:**  
-3/193, LIG, 03, Avas Vikash Colony Yojana,  
-Jhunsi, Allahabad (Phulpur),  
-Uttar Pradesh – 211019, India  
+${CONTACT_ADDRESS_LINES.join(',  \n')}  
 
 The Grievance Officer shall acknowledge complaints within 24 hours and resolve them within 15 days from receipt.
 

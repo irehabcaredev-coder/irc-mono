@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import Header from '@/components/doctor/Header'
 import LandingFooter from '@/components/LandingFooter'
 import Link from 'next/link'
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS_LINES } from '@/lib/contact'
 
 const termsAndConditionsText = `
 # TERMS & CONDITIONS
@@ -153,9 +154,10 @@ Updates will be communicated via email or website notices.
 
 ## 17. Contact and Registred Address 
 
-+1 (901) 502-0245
+${CONTACT_EMAIL}  
+${CONTACT_PHONE}
 
-0, Lowther Rd, beside Kriti Scaning Center, George Town, Prayagraj, Uttar Pradesh 211002
+${CONTACT_ADDRESS_LINES.join(', ')}
 `
 
 export default function TermsAndConditionsPage() {
