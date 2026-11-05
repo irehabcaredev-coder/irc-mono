@@ -7,6 +7,7 @@ import Header from '@/components/doctor/Header'
 import LandingFooter from '@/components/LandingFooter'
 import BestDoctors from '@/components/landing/BestDoctors'
 import Testimonials from '@/components/landing/Testimonials'
+import CityPicker from '@/components/CityPicker'
 
 const ISSUE_OPTIONS = [
   { value: '', label: 'Any concern' },
@@ -15,8 +16,6 @@ const ISSUE_OPTIONS = [
   { value: 'CHILD_SPEECH', label: "Child's speech development" },
   { value: 'ADULT_SPEECH', label: 'Adult speech difficulty' },
 ]
-
-const CITY_OPTIONS = ['Bangalore', 'Mumbai', 'Delhi', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata']
 
 export default function LandingPage() {
   const router = useRouter()
@@ -69,22 +68,20 @@ export default function LandingPage() {
 
             <div className="hidden sm:block w-px bg-gray-200 my-2"></div>
 
-            <label className="relative flex-1 flex items-center gap-3 px-4 py-3 sm:pl-6 text-left rounded-xl sm:rounded-full hover:bg-gray-50 transition-colors cursor-pointer">
+            <div className="relative flex-1 flex items-center gap-3 px-4 py-3 sm:pl-6 text-left rounded-xl sm:rounded-full hover:bg-gray-50 transition-colors">
               <MapPin className="w-5 h-5 text-blue-500 shrink-0" />
-              <span className="flex-grow min-w-0">
+              <div className="flex-grow min-w-0">
                 <span className="block text-xs font-semibold text-gray-500">City</span>
-                <select
+                <CityPicker
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="w-full bg-transparent text-gray-900 font-medium focus:outline-none appearance-none cursor-pointer truncate"
-                >
-                  <option value="">Any city</option>
-                  {CITY_OPTIONS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </span>
-            </label>
+                  allowAdd={false}
+                  onSelect={({ name }) => setCity(name)}
+                  onClear={() => setCity('')}
+                  placeholder="Any city"
+                  className="w-full bg-transparent text-gray-900 font-medium focus:outline-none truncate"
+                />
+              </div>
+            </div>
 
             <button
               type="submit"

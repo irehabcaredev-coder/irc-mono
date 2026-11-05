@@ -6,13 +6,11 @@ import { User, Settings, Bookmark, LogOut } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
 import BrandWordmark from '@/components/BrandWordmark'
 import Link from 'next/link'
-
-const cities = ['Bangalore', 'Mumbai', 'Delhi', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata']
+import CityPicker from '@/components/CityPicker'
 
 export default function Header() {
   const router = useRouter()
-  const [selectedCity, setSelectedCity] = useState('Bangalore')
-  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false)
+  const [selectedCity, setSelectedCity] = useState('')
   const isAuthed = usePatientStore((state) => state.isAuthed)
   const logout = usePatientStore((state) => state.logout)
   const openAuthModal = usePatientStore((state) => state.openAuthModal)
@@ -51,49 +49,15 @@ export default function Header() {
         <div className="flex items-center gap-2 sm:gap-4">
 
           {/* City Selector - Hidden on Mobile */}
-          <div className="relative hidden sm:block">
-            <button
-              onClick={() => setIsCityDropdownOpen(!isCityDropdownOpen)}
-              className="flex items-center space-x-1 px-2 py-1 text-xs text-gray-700 hover:text-gray-900 border border-gray-300 rounded-md hover:border-gray-400 transition-colors"
-            >
-              <span>{selectedCity}</span>
-              <svg
-                className="w-3 h-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-
-            {isCityDropdownOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setIsCityDropdownOpen(false)}
-                />
-                <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                  {cities.map((city) => (
-                    <button
-                      key={city}
-                      onClick={() => {
-                        setSelectedCity(city)
-                        setIsCityDropdownOpen(false)
-                      }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 first:rounded-t-md last:rounded-b-md"
-                    >
-                      {city}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+          <div className="hidden sm:block w-40">
+            <CityPicker
+              value={selectedCity}
+              allowAdd={false}
+              onSelect={({ name }) => setSelectedCity(name)}
+              onClear={() => setSelectedCity('')}
+              placeholder="Select city"
+              className="w-full px-2 py-1 text-xs text-gray-700 border border-gray-300 rounded-md hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-primary-blue"
+            />
           </div>
 
           {/* Auth Buttons */}
