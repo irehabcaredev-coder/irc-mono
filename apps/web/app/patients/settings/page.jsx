@@ -7,8 +7,7 @@ import Sidebar from '@/components/patients/Sidebar'
 import AuthModal from '@/components/patients/AuthModal'
 import DoctorProfile from '@/components/patients/DoctorProfile'
 import { usePatientStore } from '@/store/usePatientStore'
-
-const cities = ['Bangalore', 'Mumbai', 'Delhi', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata', 'Ahmedabad', 'Lucknow', 'Jaipur']
+import CityPicker from '@/components/CityPicker'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -186,18 +185,12 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   City
                 </label>
-                <select
+                <CityPicker
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  usePatientToken
+                  onSelect={({ name }) => setCity(name)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                >
-                  <option value="">Select city</option>
-                  {cities.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               <button

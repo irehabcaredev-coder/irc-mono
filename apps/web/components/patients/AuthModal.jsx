@@ -9,8 +9,8 @@ import { transformApiDoctorToCard } from '@/lib/dataTransformers'
 import { createPatientAccount, verifyPatientOTP, submitPatientPersonalInfo, loginPatient } from '@/lib/patientApi'
 import { ApiError } from '@/lib/apiClient'
 import { mapGenderToAPI } from '@/lib/dataTransformers'
+import CityPicker from '@/components/CityPicker'
 
-const cities = ['Bangalore', 'Mumbai', 'Delhi', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata', 'Ahmedabad', 'Lucknow', 'Jaipur']
 const issuesOptions = ['Speech & Communication', 'Hearing', 'Child-related', 'Adult / Age-related', 'Not sure']
 
 export default function AuthModal() {
@@ -966,18 +966,16 @@ export default function AuthModal() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       City
                     </label>
-                    <select
+                    <CityPicker
                       value={city}
-                      onChange={(e) => setCity(e.target.value)}
+                      state={state}
+                      usePatientToken
+                      onSelect={({ name, state: cityState }) => {
+                        setCity(name)
+                        setState(cityState)
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                    >
-                      <option value="">Select city</option>
-                      {cities.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
