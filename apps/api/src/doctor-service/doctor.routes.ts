@@ -1,5 +1,6 @@
 
 import { Router } from 'express';
+import { getOptionalUser } from '../middlewares/optionalAuth';
 import multer from 'multer';
 import asyncHandler from '../utils/asyncHandler';
 import { AppError } from '../utils/AppError';
@@ -170,7 +171,13 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     const sortByParam = req.query.sortBy as string | undefined;
     const sortBy = VALID_DOCTOR_SORT_OPTIONS.includes(sortByParam || '') ? sortByParam : undefined;
     const search = typeof req.query.search === 'string' ? req.query.search : undefined;
-    const result = await doctorService.getAllDoctors(page, limit, specialty, sortBy, search, req.query.verified === 'true');
+    const language = typeof req.query.lang === 'string' && req.query.lang.trim() ? req.query.lang.trim() : undefined;
+    const viewer = getOptionalUser(req);
+    const result = await doctorService.getAllDoctors(page, limit, specialty, sortBy, search, req.query.verified === 'true', {
+        language,
+        savedOnly: req.query.saved === 'true',
+        patientId: viewer?.type === 'patient' ? viewer.id : null,
+    });
     res.json({ success: true, ...result });
 }));
 router.get('/:id/leads', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

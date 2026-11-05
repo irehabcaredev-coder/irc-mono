@@ -151,10 +151,27 @@ const buildSearchFilter = (search: string) => {
     });
 };
 
-export const getAllDoctors = async (page: number = 1, limit: number = 10, specialty?: string, sortBy?: string, search?: string, verifiedOnly?: boolean) => {
+// The patient page filters by tab key (AUDIOLOGIST, CHILD_SPEECH, ...); doctors store AUDIOLOGIST, SPEECH_THERAPIST or BOTH,
+// and BOTH covers either side. Child/adult speech and hearing test are not stored separately.
+const specialtiesForFilter = (specialty: string): string[] | null => {
+    const key = specialty.trim().toUpperCase().replace(/[\s-]+/g, '_');
+    if (key === 'AUDIOLOGIST' || key === 'HEARING_TEST') return ['AUDIOLOGIST', 'BOTH'];
+    if (['SPEECH_THERAPIST', 'CHILD_SPEECH', 'ADULT_SPEECH'].includes(key)) return ['SPEECH_THERAPIST', 'BOTH'];
+    if (key === 'BOTH') return ['BOTH'];
+    return null;
+};
+
+export type DoctorListFilters = {
+    language?: string;
+    savedOnly?: boolean;
+    patientId?: string | null; // viewer, used by savedOnly
+};
+
+export const getAllDoctors = async (page: number = 1, limit: number = 10, specialty?: string, sortBy?: string, search?: string, verifiedOnly?: boolean, filters: DoctorListFilters = {}) => {
     try {
         const skip = (page - 1) * limit;
-        const where: any = {};
+        // Only doctors who finished onboarding are listed
+        const where: any = { onboardingStep: OnboardingStep.COMPLETE };
 
         if (search && search.trim()) {
             where.AND = buildSearchFilter(search);
@@ -165,10 +182,17 @@ export const getAllDoctors = async (page: number = 1, limit: number = 10, specia
         }
 
         if (specialty) {
-            where.specialty = {
-                contains: specialty,
-                mode: 'insensitive'
-            };
+            const allowed = specialtiesForFilter(specialty);
+            where.specialty = allowed ? { in: allowed } : { contains: specialty, mode: 'insensitive' };
+        }
+
+        if (filters.language) {
+            where.languages = { has: filters.language };
+        }
+
+        if (filters.savedOnly) {
+            // No signed-in patient means nothing is saved
+            where.savedByPatients = { some: { id: filters.patientId ?? '' } };
         }
 
         const [doctors, total] = await Promise.all([
