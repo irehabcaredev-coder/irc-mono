@@ -23,6 +23,7 @@ import {
   transformPaymentDetailsToAPI,
 } from '@/lib/dataTransformers'
 import Header from '@/components/doctor/Header'
+import CityPicker from '@/components/CityPicker'
 
 const genders = ['Male', 'Female', 'Other', 'Prefer not to say']
 const languages = ['English', 'Hindi', 'Bengali', 'Assamese', 'Tamil', 'Telugu', 'Marathi', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi', 'Urdu']
@@ -807,15 +808,14 @@ function OnboardingContent() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       City *
                     </label>
-                    <input
-                      type="text"
+                    <CityPicker
                       value={practiceData?.city || ''}
-                      onChange={(e) => {
-                        setPracticeData((prev) => ({ ...prev, city: e.target.value }))
-                        if (errors.city) setErrors((prev) => ({ ...prev, city: null }))
+                      state={practiceData?.state || ''}
+                      onSelect={({ name, state }) => {
+                        setPracticeData((prev) => ({ ...prev, city: name, state }))
+                        setErrors((prev) => ({ ...prev, city: null, state: null }))
                       }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                      placeholder="Mumbai"
+                      placeholder="Search city"
                     />
                     {errors.city && (
                       <p className="mt-1 text-sm text-accent-red">{errors.city}</p>

@@ -10,6 +10,7 @@ import { transformApiProfileToUI } from '@/lib/dataTransformers'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
 
 import { Edit2, Save, X } from 'lucide-react'
+import CityPicker from '@/components/CityPicker'
 
 const genders = ['Male', 'Female', 'Other', 'Prefer not to say']
 const languages = ['English', 'Hindi', 'Bengali', 'Assamese', 'Tamil', 'Telugu', 'Marathi', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi', 'Urdu']
@@ -424,11 +425,10 @@ export default function ProfilePage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
                     {isEditing ? (
-                      <input
-                        type="text"
+                      <CityPicker
                         value={practiceData.city || ''}
-                        onChange={(e) => setPracticeData((prev) => ({ ...prev, city: e.target.value }))}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+                        state={practiceData.state || ''}
+                        onSelect={({ name, state }) => setPracticeData((prev) => ({ ...prev, city: name, state }))}
                       />
                     ) : (
                       <p className="text-gray-900">{practiceData.city || 'Not set'}</p>
