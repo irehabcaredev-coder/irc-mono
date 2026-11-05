@@ -346,3 +346,14 @@ model Admin {
     passwordHash String
     createdAt    DateTime @default(now())
 }
+
+model City {
+    id        String   @id @default(uuid())
+    name      String
+    state     String
+    isCustom  Boolean  @default(false) // true when a user added it, false when seeded from the bundled list
+    createdAt DateTime @default(now())
+
+    @@unique([name, state])
+    @@index([name])
+}
