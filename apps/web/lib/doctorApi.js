@@ -320,7 +320,7 @@ export async function fetchDoctorProfile(doctorId, options = {}) {
  * @param {number} options.limit - Items per page (default 10)
  * @returns {Promise<{success: boolean, data: array, count: number}>}
  */
-export async function fetchAllDoctors({ page = 1, limit = 10, search, specialty, mode, lang, saved, sortBy, verified } = {}) {
+export async function fetchAllDoctors({ page = 1, limit = 10, search, specialty, lang, saved, sortBy, verified, usePatientToken = false } = {}) {
   try {
     const params = new URLSearchParams()
     params.append('page', page)
@@ -328,7 +328,6 @@ export async function fetchAllDoctors({ page = 1, limit = 10, search, specialty,
 
     if (search) params.append('search', search)
     if (specialty) params.append('specialty', specialty)
-    if (mode) params.append('mode', mode)
     if (lang) params.append('lang', lang)
     if (saved) params.append('saved', saved)
     if (sortBy) params.append('sortBy', sortBy)
@@ -336,6 +335,7 @@ export async function fetchAllDoctors({ page = 1, limit = 10, search, specialty,
 
     const response = await apiGet(`/doctors?${params.toString()}`, {
       skipAuth: false,
+      usePatientToken, // the Saved tab needs to know which patient is asking
     })
     return response
   } catch (error) {

@@ -16,7 +16,7 @@ import { BRAND_NAME } from '@/lib/brand'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useRef, useCallback } from 'react'
 
-const languages = ['English', 'Hindi', 'Assamese', 'Bengali', 'Kannada', 'Marathi', 'Tamil', 'Telugu', 'Gujarati']
+const languages = ['English', 'Hindi', 'Bengali', 'Assamese', 'Tamil', 'Telugu', 'Marathi', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi', 'Urdu']
 
 import { Suspense } from 'react'
 
@@ -30,12 +30,10 @@ function PatientsContent() {
 
   const activeTab = usePatientStore((state) => state.activeTab)
   const searchQuery = usePatientStore((state) => state.searchQuery)
-  const selectedConsultModes = usePatientStore((state) => state.selectedConsultModes)
   const selectedLanguage = usePatientStore((state) => state.selectedLanguage)
   const savedDoctorIds = usePatientStore((state) => state.savedDoctorIds)
   const setSearchQuery = usePatientStore((state) => state.setSearchQuery)
   const setActiveTab = usePatientStore((state) => state.setActiveTab)
-  const toggleConsultMode = usePatientStore((state) => state.toggleConsultMode)
   const setSelectedLanguage = usePatientStore((state) => state.setSelectedLanguage)
   const setAuthSuccess = usePatientStore((state) => state.setAuthSuccess)
   const isAuthed = usePatientStore((state) => state.isAuthed)
@@ -137,17 +135,9 @@ function PatientsContent() {
     }
   }, [isHydrated, tokenFromUrl, searchParams, setAuthSuccess, router, openAuthModal, setAuthStep, setTempPatientId])
 
-  // Map activeTab to specialty or saved filter
-  const getSpecialtyFromTab = (tab) => {
-    switch (tab) {
-      case 'AUDIOLOGIST': return 'Audiologist'
-      case 'SPEECH_THERAPIST': return 'Speech Therapist'
-      case 'CHILD_SPEECH': return 'Child Speech' // Adjust if backend expects different value
-      case 'ADULT_SPEECH': return 'Adult Speech' // Adjust if backend expects different value
-      case 'HEARING_TEST': return 'Hearing Test'
-      default: return undefined
-    }
-  }
+  // The API maps these tab keys to the specialties doctors actually store
+  const SPECIALTY_TABS = ['AUDIOLOGIST', 'SPEECH_THERAPIST', 'CHILD_SPEECH', 'ADULT_SPEECH', 'HEARING_TEST']
+  const getSpecialtyFromTab = (tab) => (SPECIALTY_TABS.includes(tab) ? tab : undefined)
 
   // Fetch all doctors from API with pagination AND filters
   const {
@@ -157,7 +147,7 @@ function PatientsContent() {
     hasNextPage,
     isFetchingNextPage
   } = useInfiniteQuery({
-    queryKey: ['allDoctorsInfinite', activeTab, searchQuery, selectedConsultModes, selectedLanguage, savedDoctorIds],
+    queryKey: ['allDoctorsInfinite', activeTab, searchQuery, selectedLanguage, savedDoctorIds],
     queryFn: async ({ pageParam = 1 }) => {
       const specialty = getSpecialtyFromTab(activeTab)
       const saved = activeTab === 'SAVED_DOCTORS' ? 'true' : undefined
@@ -167,9 +157,9 @@ function PatientsContent() {
         limit: 10,
         search: searchQuery,
         specialty,
-        mode: selectedConsultModes.length > 0 ? selectedConsultModes.join(',') : undefined,
         lang: selectedLanguage || undefined,
-        saved
+        saved,
+        usePatientToken: true,
       })
 
       // Normalize response structure
@@ -245,34 +235,11 @@ function PatientsContent() {
             <div>
               <input
                 type="text"
-                placeholder="Search by doctor name, clinic, or locality"
+                placeholder="Search by city, locality, specialty, or doctor name"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
               />
-            </div>
-
-            {/* Consult Mode Filters */}
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm text-gray-600 mr-2 self-center">Consult mode:</span>
-              {['CLINIC', 'HOME_VISIT', 'ONLINE'].map((mode) => {
-                const isSelected = selectedConsultModes.includes(mode)
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => toggleConsultMode(mode)}
-                    className={`px-3 py-1 text-sm font-medium rounded-full transition-colors relative ${isSelected
-                      ? 'bg-primary-blue text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                  >
-                    {mode === 'CLINIC' ? 'Clinic' : mode === 'HOME_VISIT' ? 'Home Visit' : 'Online'}
-                    {isSelected && (
-                      <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-accent-red rounded-full"></span>
-                    )}
-                  </button>
-                )
-              })}
             </div>
 
             {/* Language Filter */}
@@ -315,7 +282,7 @@ function PatientsContent() {
 
                 {/* Infinite Scroll Trigger */}
                 <InfiniteScrollTrigger
-                  hasNextPage={hasNextPage && !searchQuery && selectedConsultModes.length === 0 && !selectedLanguage}
+                  hasNextPage={hasNextPage}
                   fetchNextPage={fetchNextPage}
                   isFetchingNextPage={isFetchingNextPage}
                 />
@@ -324,7 +291,7 @@ function PatientsContent() {
               <div className="text-center py-12">
                 <p className="text-gray-600">No doctors found matching your criteria.</p>
                 <InfiniteScrollTrigger
-                  hasNextPage={hasNextPage && !searchQuery && selectedConsultModes.length === 0 && !selectedLanguage}
+                  hasNextPage={hasNextPage}
                   fetchNextPage={fetchNextPage}
                   isFetchingNextPage={isFetchingNextPage}
                 />
