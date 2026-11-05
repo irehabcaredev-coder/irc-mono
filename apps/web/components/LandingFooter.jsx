@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import BrandWordmark from '@/components/BrandWordmark'
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_PHONE_HREF, CONTACT_ADDRESS_LINES } from '@/lib/contact'
 
 // Set NEXT_PUBLIC_DOCTORS_URL (e.g. https://doctors.irehabcare.com) once the doctor domain exists;
 // until then the doctor landing page is reachable at /for-doctors on this site.
@@ -18,6 +19,14 @@ export default function LandingFooter() {
                     <span className="text-gray-700">•</span>
                     <Link href={DOCTORS_URL} className="text-sm font-medium hover:text-white transition-colors">For Doctors</Link>
                 </div>
+                <address className="not-italic text-sm text-gray-500 mb-8 space-y-1">
+                    <div>
+                        <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-white transition-colors">{CONTACT_EMAIL}</a>
+                        <span className="mx-2 text-gray-700">•</span>
+                        <a href={CONTACT_PHONE_HREF} className="hover:text-white transition-colors">{CONTACT_PHONE}</a>
+                    </div>
+                    <div>{CONTACT_ADDRESS_LINES.join(', ')}</div>
+                </address>
                 <div className="border-t border-gray-800/60 w-full pt-8 text-sm text-gray-500 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div>© {new Date().getFullYear()} gocare. All rights reserved.</div>
                     <div className="flex gap-6 max-sm:flex-col max-sm:gap-2 max-sm:items-center">
