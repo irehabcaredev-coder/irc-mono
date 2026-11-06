@@ -1,5 +1,6 @@
 
 import { z } from 'zod';
+import { isValidInternationalPhone, PHONE_ERROR } from '../utils/phone';
 import { Gender, DayOfWeek } from '@prisma/client';
 
 export const onboardingPersonalInfoSchema = z.object({
@@ -9,8 +10,8 @@ export const onboardingPersonalInfoSchema = z.object({
         age: z.number().min(18).max(100),
         gender: z.nativeEnum(Gender),
         languages: z.array(z.string()).min(1),
-        contactNumber: z.string().min(10),
-        whatsappNumber: z.string().min(10),
+        contactNumber: z.string().refine(isValidInternationalPhone, PHONE_ERROR),
+        whatsappNumber: z.string().refine(isValidInternationalPhone, PHONE_ERROR),
     }),
 });
 
