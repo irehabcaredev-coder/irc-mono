@@ -11,6 +11,8 @@ import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/Dashboar
 
 import { Edit2, Save, X } from 'lucide-react'
 import CityPicker from '@/components/CityPicker'
+import PhoneInput from '@/components/PhoneInput'
+import { isValidE164, PHONE_ERROR } from '@/lib/phone'
 
 const genders = ['Male', 'Female', 'Other', 'Prefer not to say']
 const languages = ['English', 'Hindi', 'Bengali', 'Assamese', 'Tamil', 'Telugu', 'Marathi', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi', 'Urdu']
@@ -37,6 +39,7 @@ export default function ProfilePage() {
     languages: [],
     phone: '',
   })
+  const [phoneError, setPhoneError] = useState('')
   const [professionalData, setProfessionalData] = useState(doctorProfile.professional || {
     specialty: '',
     yearsOfExperience: null,
@@ -114,6 +117,10 @@ export default function ProfilePage() {
   }, [doctorProfile])
 
   const handleSave = async () => {
+    if (basicData.phone && !isValidE164(basicData.phone)) {
+      setPhoneError(PHONE_ERROR)
+      return
+    }
     // TODO: Update doctor profile via API when endpoint is available
     // For now, save to local store only
     try {
@@ -295,16 +302,17 @@ export default function ProfilePage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
                   {isEditing ? (
-                    <input
-                      type="tel"
-                      value={basicData.phone || ''}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 10)
-                        setBasicData((prev) => ({ ...prev, phone: value }))
-                      }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                      placeholder="9876543210"
-                    />
+                    <>
+                      <PhoneInput
+                        value={basicData.phone || ''}
+                        onChange={(value) => {
+                          setBasicData((prev) => ({ ...prev, phone: value }))
+                          setPhoneError('')
+                        }}
+                        placeholder="Phone number"
+                      />
+                      {phoneError && <p className="mt-1 text-sm text-accent-red">{phoneError}</p>}
+                    </>
                   ) : (
                     <p className="text-gray-900">{basicData.phone || 'Not set'}</p>
                   )}

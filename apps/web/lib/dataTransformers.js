@@ -103,6 +103,8 @@ export function formatTimingFromAPI(timing) {
  */
 export function formatPhoneForAPI(phone) {
   if (!phone) return ''
+  // Numbers from the country picker already carry their country code
+  if (phone.startsWith('+')) return `+${phone.replace(/\D/g, '')}`
   // Remove all non-digit characters
   const digits = phone.replace(/\D/g, '')
   // If it's 10 digits, assume Indian number and add +91

@@ -24,6 +24,8 @@ import {
 } from '@/lib/dataTransformers'
 import Header from '@/components/doctor/Header'
 import CityPicker from '@/components/CityPicker'
+import PhoneInput from '@/components/PhoneInput'
+import { isValidE164, PHONE_ERROR } from '@/lib/phone'
 
 const genders = ['Male', 'Female', 'Other', 'Prefer not to say']
 const languages = ['English', 'Hindi', 'Bengali', 'Assamese', 'Tamil', 'Telugu', 'Marathi', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi', 'Urdu']
@@ -292,8 +294,8 @@ function OnboardingContent() {
       if (!basicData?.languages || basicData.languages.length === 0) {
         newErrors.languages = 'Please select at least one language'
       }
-      if (!basicData?.phone || basicData.phone.trim().length === 0) {
-        newErrors.phone = 'Please enter a valid phone number'
+      if (!isValidE164(basicData?.phone)) {
+        newErrors.phone = PHONE_ERROR
       }
     }
 
@@ -647,18 +649,15 @@ function OnboardingContent() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number * (10 digits)
+                    Phone / WhatsApp Number *
                   </label>
-                  <input
-                    type="tel"
+                  <PhoneInput
                     value={basicData?.phone || ''}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10)
+                    onChange={(value) => {
                       setBasicData((prev) => ({ ...prev, phone: value }))
                       if (errors.phone) setErrors((prev) => ({ ...prev, phone: null }))
                     }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
-                    placeholder="9876543210"
+                    placeholder="Phone number"
                   />
                   {errors.phone && (
                     <p className="mt-1 text-sm text-accent-red">{errors.phone}</p>
