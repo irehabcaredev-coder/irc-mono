@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import Header from '@/components/doctor/Header'
 import LandingFooter from '@/components/LandingFooter'
 import Link from 'next/link'
-import { CONTACT_EMAIL, CONTACT_PHONE } from '@/lib/contact'
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP } from '@/lib/contact'
 
 const refundPolicyText = `
 # CANCELLATION & REFUND POLICY
@@ -19,7 +19,7 @@ Cancellation and refund policies apply as follows:
 - If a doctor cancels or fails to attend, rescheduling or refund options may be provided.
 - Platform convenience fees (if any) may be non-refundable.
 
-For cancellation or refund queries, contact us at ${CONTACT_EMAIL} or ${CONTACT_PHONE}.
+For cancellation or refund queries, contact us at ${CONTACT_EMAIL}, ${CONTACT_PHONE}, or on WhatsApp at ${CONTACT_WHATSAPP}.
 - Detailed terms may be displayed during booking.
 `
 

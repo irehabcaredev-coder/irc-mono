@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import BrandWordmark from '@/components/BrandWordmark'
-import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_PHONE_HREF, CONTACT_ADDRESS_LINES } from '@/lib/contact'
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_PHONE_HREF, CONTACT_WHATSAPP, CONTACT_WHATSAPP_HREF, CONTACT_ADDRESS_LINES } from '@/lib/contact'
 
 // Set NEXT_PUBLIC_DOCTORS_URL (e.g. https://doctors.irehabcare.com) once the doctor domain exists;
 // until then the doctor landing page is reachable at /for-doctors on this site.
@@ -24,6 +24,8 @@ export default function LandingFooter() {
                         <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-white transition-colors">{CONTACT_EMAIL}</a>
                         <span className="mx-2 text-gray-700">•</span>
                         <a href={CONTACT_PHONE_HREF} className="hover:text-white transition-colors">{CONTACT_PHONE}</a>
+                        <span className="mx-2 text-gray-700">•</span>
+                        <a href={CONTACT_WHATSAPP_HREF} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">WhatsApp {CONTACT_WHATSAPP}</a>
                     </div>
                     <div>{CONTACT_ADDRESS_LINES.join(', ')}</div>
                 </address>
