@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import Header from '@/components/doctor/Header'
 import LandingFooter from '@/components/LandingFooter'
 import Link from 'next/link'
-import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP, CONTACT_ADDRESS_LINES } from '@/lib/contact'
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS_LINES } from '@/lib/contact'
 
 const termsAndConditionsText = `
 # TERMS & CONDITIONS
@@ -155,8 +155,7 @@ Updates will be communicated via email or website notices.
 ## 17. Contact and Registred Address 
 
 ${CONTACT_EMAIL}  
-${CONTACT_PHONE}  
-WhatsApp: ${CONTACT_WHATSAPP}
+${CONTACT_PHONE}
 
 ${CONTACT_ADDRESS_LINES.join(', ')}
 `

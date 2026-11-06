@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import Header from '@/components/doctor/Header'
 import LandingFooter from '@/components/LandingFooter'
 import Link from 'next/link'
-import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP, CONTACT_ADDRESS_LINES } from '@/lib/contact'
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_ADDRESS_LINES } from '@/lib/contact'
 
 const privacyPolicyText = `
 # PRIVACY POLICY
@@ -187,7 +187,6 @@ In accordance with the Information Technology Act and Intermediary Guidelines Ru
 **Company:** Fambience Private Limited  
 **Email:** ${CONTACT_EMAIL}  
 **Phone:** ${CONTACT_PHONE}  
-**WhatsApp:** ${CONTACT_WHATSAPP}  
 
 **Registered Address:**  
 ${CONTACT_ADDRESS_LINES.join(',  \n')}  
