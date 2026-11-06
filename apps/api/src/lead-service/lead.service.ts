@@ -71,7 +71,7 @@ export const registerProfileView = async (doctorId: string, patientId: string) =
                         </div>
                         
                         <div style="margin-top: 25px; text-align: center;">
-                            <a href="${process.env.FRONTEND_URL || '#'}/doctor/leads" style="background-color: #4299e1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Full Profile</a>
+                            <a href="${process.env.FRONTEND_URL || '#'}/dashboard/leads" style="background-color: #4299e1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Full Profile</a>
                         </div>
                     </div>
                     <div style="background-color: #edf2f7; padding: 15px; text-align: center; font-size: 12px; color: #718096;">
