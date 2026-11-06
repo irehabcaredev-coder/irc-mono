@@ -6,6 +6,7 @@ import { X, Phone, MessageCircle } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
 import { fetchDoctorProfile } from '@/lib/doctorApi'
 import { transformApiDoctorToCard } from '@/lib/dataTransformers'
+import { whatsappUrl } from '@/lib/phone'
 
 export default function DoctorProfile() {
   const { profileDrawerOpen, selectedDoctorId, closeProfileDrawer, isAuthed, openAuthModal, addViewedDoctor } =
@@ -64,7 +65,7 @@ export default function DoctorProfile() {
       openAuthModal('login', { type: 'WHATSAPP', doctorId: doctor.id })
       return
     }
-    window.open(`https://wa.me/${doctor.whatsapp.replace(/[^0-9]/g, '')}`, '_blank')
+    window.open(whatsappUrl(doctor.whatsapp), '_blank')
   }
 
   return (

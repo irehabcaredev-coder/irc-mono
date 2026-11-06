@@ -2,6 +2,7 @@
 
 import { Phone, MessageCircle, User, Bookmark, BookmarkCheck } from 'lucide-react'
 import { usePatientStore } from '@/store/usePatientStore'
+import { whatsappUrl } from '@/lib/phone'
 
 export default function DoctorCard({ doctor }) {
   const savedDoctorIds = usePatientStore((state) => state.savedDoctorIds)
@@ -31,7 +32,7 @@ export default function DoctorCard({ doctor }) {
       return
     }
     addViewedDoctor(doctor.id)
-    window.open(`https://wa.me/${doctor.whatsapp.replace(/[^0-9]/g, '')}`, '_blank')
+    window.open(whatsappUrl(doctor.whatsapp), '_blank')
   }
 
   const handleViewProfile = () => {
