@@ -10,6 +10,8 @@ import { createPatientAccount, verifyPatientOTP, submitPatientPersonalInfo, logi
 import { ApiError } from '@/lib/apiClient'
 import { mapGenderToAPI } from '@/lib/dataTransformers'
 import CityPicker from '@/components/CityPicker'
+import PhoneInput from '@/components/PhoneInput'
+import { isValidE164, whatsappUrl, PHONE_ERROR } from '@/lib/phone'
 
 const issuesOptions = ['Speech & Communication', 'Hearing', 'Child-related', 'Adult / Age-related', 'Not sure']
 
@@ -242,7 +244,7 @@ export default function AuthModal() {
         }
       } else if (pendingAction.type === 'WHATSAPP') {
         if (doctor?.whatsapp) {
-          window.open(`https://wa.me/${doctor.whatsapp.replace(/[^0-9]/g, '')}`, '_blank')
+          window.open(whatsappUrl(doctor.whatsapp), '_blank')
         }
       } else if (pendingAction.type === 'PROFILE') {
         const { openProfileDrawer } = usePatientStore.getState()
@@ -293,8 +295,8 @@ export default function AuthModal() {
       return
     }
 
-    if (phone.length !== 10 || !/^\d+$/.test(phone)) {
-      setPhoneError('Enter a valid 10-digit phone number')
+    if (!isValidE164(phone)) {
+      setPhoneError(PHONE_ERROR)
       return
     }
 
@@ -309,7 +311,7 @@ export default function AuthModal() {
 
     try {
       // Format phone number with country code
-      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`
+      const formattedPhone = phone
 
       const result = await submitPatientPersonalInfo(activePatientId, {
         name: name.trim(),
@@ -391,14 +393,8 @@ export default function AuthModal() {
   }
 
   const handlePhoneChange = (value) => {
-    // Only allow numeric input, max 10 digits
-    const numericValue = value.replace(/\D/g, '').slice(0, 10)
-    setPhone(numericValue)
-    if (numericValue.length > 0 && numericValue.length !== 10) {
-      setPhoneError('Enter a valid 10-digit phone number')
-    } else {
-      setPhoneError('')
-    }
+    setPhone(value)
+    setPhoneError(value && !isValidE164(value) ? PHONE_ERROR : '')
   }
 
   const handleGoogleSignIn = () => {
@@ -950,13 +946,11 @@ export default function AuthModal() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Phone Number
                     </label>
-                    <input
-                      type="tel"
+                    <PhoneInput
                       value={phone}
-                      onChange={(e) => handlePhoneChange(e.target.value)}
-                      placeholder="Enter 10-digit phone number"
-                      maxLength={10}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+                      onChange={handlePhoneChange}
+                      placeholder="Phone number"
+                      inputClassName="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
                     />
                     {phoneError && (
                       <p className="text-xs text-accent-red mt-1">{phoneError}</p>
@@ -996,7 +990,7 @@ export default function AuthModal() {
                   </div>
                   <button
                     onClick={handleCompleteRegistration}
-                    disabled={!name || !age || !gender || !phone || !city || isLoading || parseInt(age) < 0 || parseInt(age) > 120 || phone.length !== 10}
+                    disabled={!name || !age || !gender || !phone || !city || isLoading || parseInt(age) < 0 || parseInt(age) > 120 || !isValidE164(phone)}
                     className="w-full px-4 py-2 bg-primary-blue text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isLoading ? 'Completing...' : 'Complete'}

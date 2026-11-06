@@ -8,6 +8,8 @@ import AuthModal from '@/components/patients/AuthModal'
 import DoctorProfile from '@/components/patients/DoctorProfile'
 import { usePatientStore } from '@/store/usePatientStore'
 import CityPicker from '@/components/CityPicker'
+import PhoneInput from '@/components/PhoneInput'
+import { isValidE164, PHONE_ERROR } from '@/lib/phone'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -56,14 +58,8 @@ export default function SettingsPage() {
   }
 
   const handlePhoneChange = (value) => {
-    // Only allow numeric input, max 10 digits
-    const numericValue = value.replace(/\D/g, '').slice(0, 10)
-    setPhone(numericValue)
-    if (numericValue.length > 0 && numericValue.length !== 10) {
-      setPhoneError('Enter a valid 10-digit phone number')
-    } else {
-      setPhoneError('')
-    }
+    setPhone(value)
+    setPhoneError(value && !isValidE164(value) ? PHONE_ERROR : '')
   }
 
   const handleSave = () => {
@@ -74,8 +70,8 @@ export default function SettingsPage() {
       setAgeError(parseInt(age) < 0 ? 'Age cannot be negative' : 'Age must be 120 or less')
       return
     }
-    if (phone.length !== 10 || !/^\d+$/.test(phone)) {
-      setPhoneError('Enter a valid 10-digit phone number')
+    if (!isValidE164(phone)) {
+      setPhoneError(PHONE_ERROR)
       return
     }
 
@@ -168,13 +164,11 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Phone Number
                 </label>
-                <input
-                  type="tel"
+                <PhoneInput
                   value={phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  placeholder="Enter 10-digit phone number"
-                  maxLength={10}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+                  onChange={handlePhoneChange}
+                  placeholder="Phone number"
+                  inputClassName="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
                 />
                 {phoneError && (
                   <p className="text-xs text-accent-red mt-1">{phoneError}</p>
@@ -195,7 +189,7 @@ export default function SettingsPage() {
 
               <button
                 onClick={handleSave}
-                disabled={!name || !age || !gender || !phone || !city || parseInt(age) < 0 || parseInt(age) > 120 || phone.length !== 10}
+                disabled={!name || !age || !gender || !phone || !city || parseInt(age) < 0 || parseInt(age) > 120 || !isValidE164(phone)}
                 className="w-full px-4 py-2 bg-primary-blue text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Save Changes
