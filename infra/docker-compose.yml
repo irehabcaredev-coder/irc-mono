@@ -36,6 +36,27 @@ services:
       - caddy_config:/config
     depends_on: [api]
 
+  # TURN relay for video calls. Without it calls fail for people on mobile data / strict NATs
+  # (both join the room but media never connects). Host networking so the relay port range is reachable.
+  # Open on the GCP firewall: 3478 udp+tcp and 49152-49252 udp. Needs TURN_SHARED_SECRET and TURN_EXTERNAL_IP in .env.
+  coturn:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -n
+      - --log-file=stdout
+      - --realm=${API_DOMAIN}
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SHARED_SECRET:?set TURN_SHARED_SECRET}
+      - --external-ip=${TURN_EXTERNAL_IP:?set TURN_EXTERNAL_IP}
+      - --listening-port=3478
+      - --min-port=49152
+      - --max-port=49252
+      - --fingerprint
+      - --no-multicast-peers
+      - --no-cli
+
 volumes:
   caddy_data:
   caddy_config:
