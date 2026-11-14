@@ -64,7 +64,11 @@ export const verifyRegistration = async (doctorId: string, rawRegistrationNo: st
 export const isRciVerified = (doctor: { rciRegistrationId?: string | null; rciCardVerifiedAt?: Date | null }) =>
     !!doctor.rciRegistrationId || !!doctor.rciCardVerifiedAt;
 
+// Temporarily optional while we work out the inflow of non-Indian doctors. Flip to true to enforce RCI again.
+export const RCI_REQUIRED = false;
+
 export const assertRciVerified = async (doctorId: string) => {
+    if (!RCI_REQUIRED) return;
     const doctor = await prisma.doctor.findUnique({ where: { id: doctorId }, select: { rciRegistrationId: true, rciCardVerifiedAt: true } });
     if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
     if (!isRciVerified(doctor)) throw new AppError('Verify your RCI registration number before continuing.', FORBIDDEN);
@@ -73,7 +77,7 @@ export const assertRciVerified = async (doctorId: string) => {
 export const GRACE_MS = 2 * 24 * 60 * 60 * 1000;
 
 const isCompliant = async (doctor: { id: string; rciRegistrationId: string | null; rciCardVerifiedAt?: Date | null }) =>
-    isRciVerified(doctor) && (await hasAcceptedCurrent(doctor.id));
+    (!RCI_REQUIRED || isRciVerified(doctor)) && (await hasAcceptedCurrent(doctor.id));
 
 /**
  * Doctors who finished onboarding before RCI verification and the provider agreement existed get GRACE_MS from their
