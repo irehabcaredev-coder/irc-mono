@@ -1,4 +1,6 @@
-// A doctor who has not verified with the RCI is not shown by name to anyone but themselves.
+import { RCI_REQUIRED } from './rci.service';
+
+// While RCI_REQUIRED is on, a doctor who has not verified with the RCI is not shown by name to anyone but themselves.
 export const HIDDEN_NAME = 'Verification pending';
 
 const SECRET_FIELDS = ['password', 'otp', 'otpExpiry', 'googleId'];
@@ -21,7 +23,7 @@ export const presentDoctor = <T extends Record<string, any>>(doctor: T, viewerDo
             delete out.rciRegistrationId;
             delete out.rciCardVerifiedAt;
             delete out.complianceDeadline;
-            if (!verified) out.name = HIDDEN_NAME;
+            if (RCI_REQUIRED && !verified) out.name = HIDDEN_NAME;
         }
     }
     return out as Omit<T, 'password' | 'otp' | 'otpExpiry' | 'googleId'> & Record<string, any>;
