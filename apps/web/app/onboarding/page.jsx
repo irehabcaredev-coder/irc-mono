@@ -1022,7 +1022,7 @@ function OnboardingContent() {
               </button>
               {step !== 2 && <button
                 onClick={handleNext}
-                disabled={submitLoading || (step === 1 && !rciVerified)}
+                disabled={submitLoading || (step === 1 && RCI_REQUIRED && !rciVerified)}
                 className="flex items-center px-6 py-3 bg-primary-blue text-white rounded-lg font-semibold hover:bg-[#155a7a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitLoading
