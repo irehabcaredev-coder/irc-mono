@@ -13,6 +13,7 @@ import {
 } from '@/lib/doctorApi'
 import AgreementForm from '@/components/doctor/AgreementForm'
 import RciCardUpload from '@/components/doctor/RciCardUpload'
+import { RCI_REQUIRED } from '@/lib/featureFlags'
 import { fetchDoctorProfile } from '@/lib/doctorApi'
 
 import { ApiError } from '@/lib/apiClient'
@@ -142,8 +143,8 @@ function OnboardingContent() {
   }, [isHydrated, doctorAuth.isAuthed, doctorAuth.doctorId])
 
   useEffect(() => {
-    if (rciVerified === false && step !== 1) setStep(1)
-    else if (rciVerified && agreementAccepted === false && step > 2) setStep(2)
+    if (RCI_REQUIRED && rciVerified === false && step !== 1) setStep(1)
+    else if ((rciVerified || !RCI_REQUIRED) && agreementAccepted === false && step > 2) setStep(2)
   }, [rciVerified, agreementAccepted, step])
 
   const handleVerifyRci = async () => {
@@ -285,7 +286,7 @@ function OnboardingContent() {
 
     if (stepNum === 1) {
       // Step 1: RCI verification, then Personal Info
-      if (!rciVerified) newErrors.rci = 'Verify your RCI registration number to continue'
+      if (RCI_REQUIRED && !rciVerified) newErrors.rci = 'Verify your RCI registration number to continue'
       if (!basicData?.name?.trim()) newErrors.name = 'Name is required'
       if (!basicData?.age || basicData?.age < 18 || basicData?.age > 100) {
         newErrors.age = 'Please enter a valid age (18-100)'
@@ -349,16 +350,18 @@ function OnboardingContent() {
       if (!paymentData?.consultationFee || isNaN(fee) || fee <= 0) {
         newErrors.consultationFee = 'Please enter a valid consultation fee'
       }
+      // Bank details are optional for now: all three together, or none
       const accNum = paymentData?.bankAccountNumber?.trim() || ''
-      if (accNum.length < 9 || accNum.length > 18) {
+      const hasBankDetails = Boolean(accNum || paymentData?.bankIfsc?.trim() || paymentData?.bankBeneficiaryName?.trim())
+      if (hasBankDetails && (accNum.length < 9 || accNum.length > 18)) {
         newErrors.bankAccountNumber = 'Account number must be 9-18 characters'
       }
       const ifsc = (paymentData?.bankIfsc?.trim() || '').toUpperCase()
-      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      if (hasBankDetails && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
         newErrors.bankIfsc = 'Invalid IFSC code (e.g. SBIN0001234)'
       }
       const beneficiary = paymentData?.bankBeneficiaryName?.trim() || ''
-      if (beneficiary.length < 2) {
+      if (hasBankDetails && beneficiary.length < 2) {
         newErrors.bankBeneficiaryName = 'Beneficiary name must be at least 2 characters'
       }
     }
@@ -413,9 +416,11 @@ function OnboardingContent() {
         // Submit Payment Info (final step)
         const result = await submitPaymentInfo(doctorId, {
           consultationFee: Number(paymentData.consultationFee),
-          bankAccountNumber: paymentData.bankAccountNumber,
-          bankIfsc: paymentData.bankIfsc,
-          bankBeneficiaryName: paymentData.bankBeneficiaryName,
+          ...(paymentData.bankAccountNumber?.trim() && {
+            bankAccountNumber: paymentData.bankAccountNumber.trim(),
+            bankIfsc: paymentData.bankIfsc.trim().toUpperCase(),
+            bankBeneficiaryName: paymentData.bankBeneficiaryName.trim(),
+          }),
         })
 
         if (result.success && result.data) {
@@ -525,7 +530,7 @@ function OnboardingContent() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    RCI Registration Number *
+                    RCI Registration Number{RCI_REQUIRED ? ' *' : ' (optional)'}
                   </label>
                   {rciVerified ? (
                     <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm font-medium">
@@ -578,8 +583,8 @@ function OnboardingContent() {
                 </div>
 
                 <fieldset
-                  disabled={!rciVerified}
-                  className={`space-y-6 min-w-0 border-0 p-0 m-0 transition-opacity ${rciVerified ? '' : 'opacity-50 pointer-events-none select-none'}`}
+                  disabled={RCI_REQUIRED && !rciVerified}
+                  className={`space-y-6 min-w-0 border-0 p-0 m-0 transition-opacity ${!RCI_REQUIRED || rciVerified ? '' : 'opacity-50 pointer-events-none select-none'}`}
                 >
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -943,7 +948,7 @@ function OnboardingContent() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Account Number *
+                    Bank Account Number (optional)
                   </label>
                   <input
                     type="text"
@@ -964,7 +969,7 @@ function OnboardingContent() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    IFSC Code *
+                    IFSC Code (optional)
                   </label>
                   <input
                     type="text"
@@ -986,7 +991,7 @@ function OnboardingContent() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Beneficiary Name *
+                    Beneficiary Name (optional)
                   </label>
                   <input
                     type="text"
