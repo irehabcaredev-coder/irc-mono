@@ -8,6 +8,7 @@ import { fetchDoctorProfile, verifyRciRegistration } from '@/lib/doctorApi'
 import { ApiError } from '@/lib/apiClient'
 import AgreementForm from './AgreementForm'
 import RciCardUpload from './RciCardUpload'
+import { RCI_REQUIRED } from '@/lib/featureFlags'
 
 function timeLeft(deadline) {
   const ms = new Date(deadline).getTime() - Date.now()
@@ -91,7 +92,7 @@ export default function RciGate({ children }) {
   })
 
   const doctor = data?.data
-  const missingRci = !doctor?.rciVerified
+  const missingRci = RCI_REQUIRED && !doctor?.rciVerified
   const missingAgreement = doctor?.agreementAccepted === false
   const needsAction = doctor && doctor.onboardingStep === 'COMPLETE' && (missingRci || missingAgreement)
   if (!needsAction) return children
@@ -132,7 +133,7 @@ export default function RciGate({ children }) {
             <BadgeCheck className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
             <p className="text-sm text-amber-900">
               <span className="font-semibold">Please {todo}{remaining ? ` within ${remaining}` : ''}.</span>{' '}
-              Both are now required for every doctor. {missingRci ? 'Until you add your RCI number your name is hidden from patients, and ' : ''}
+              {missingRci && missingAgreement ? 'Both are' : 'This is'} now required for every doctor. {missingRci ? 'Until you add your RCI number your name is hidden from patients, and ' : ''}
               your dashboard locks when the time runs out.
             </p>
           </div>
