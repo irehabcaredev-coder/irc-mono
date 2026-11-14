@@ -124,21 +124,25 @@ router.post('/onboarding/payment-info', validate(onboardingPaymentInfoSchema), a
     const doctor = await doctorService.findDoctorById(doctorId);
     if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
 
-    // Create Razorpay Linked Account
-    const { createLinkedAccount } = require('../payment-service/razorpay.service');
-    const razorpayAccount = await createLinkedAccount({
-        email: doctor.email,
-        name: doctor.name || bankData.bankBeneficiaryName,
-        phone: doctor.contactNumber || '', // Use contactNumber as phone
-        bankAccountNumber: bankData.bankAccountNumber,
-        bankIfsc: bankData.bankIfsc,
-        bankBeneficiaryName: bankData.bankBeneficiaryName
-    });
+    // Payout details are optional for now; without them no Razorpay linked account is created
+    const { bankAccountNumber, bankIfsc, bankBeneficiaryName } = bankData;
+    let payout: Record<string, any> = {};
+    if (bankAccountNumber && bankIfsc && bankBeneficiaryName) {
+        const { createLinkedAccount } = require('../payment-service/razorpay.service');
+        const razorpayAccount = await createLinkedAccount({
+            email: doctor.email,
+            name: doctor.name || bankBeneficiaryName,
+            phone: doctor.contactNumber || '', // Use contactNumber as phone
+            bankAccountNumber,
+            bankIfsc,
+            bankBeneficiaryName
+        });
+        payout = { bankAccountNumber, bankIfsc, bankBeneficiaryName, razorpayAccountId: razorpayAccount.id };
+    }
 
     const updated = await doctorService.updateDoctorProfile(doctorId, { 
-        ...bankData, 
+        ...payout,
         consultationFee: consultationFee * 100, // Convert to paise
-        razorpayAccountId: razorpayAccount.id,
         onboardingStep: 'COMPLETE' 
     }); 
     res.json({ success: true, data: updated });

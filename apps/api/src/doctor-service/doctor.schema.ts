@@ -40,10 +40,14 @@ export const onboardingPaymentInfoSchema = z.object({
     body: z.object({
         doctorId: z.string().uuid(),
         consultationFee: z.number().min(0), // Amount in INR, we'll convert to paise in service
-        bankAccountNumber: z.string().min(9).max(18),
-        bankIfsc: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/),
-        bankBeneficiaryName: z.string().min(2),
-    }),
+        // Bank details are optional for now: all three together, or none
+        bankAccountNumber: z.string().min(9).max(18).optional(),
+        bankIfsc: z.string().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/).optional(),
+        bankBeneficiaryName: z.string().min(2).optional(),
+    }).refine(
+        (b) => [b.bankAccountNumber, b.bankIfsc, b.bankBeneficiaryName].every(Boolean) || ![b.bankAccountNumber, b.bankIfsc, b.bankBeneficiaryName].some(Boolean),
+        { message: 'Provide all bank details or none', path: ['bankAccountNumber'] },
+    ),
 });
 
 export const rciVerifySchema = z.object({
