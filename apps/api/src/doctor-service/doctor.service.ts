@@ -8,6 +8,7 @@ import * as emailService from '../email-service/email.service';
 import { generateOTP, generateToken } from '../google-auth-service/auth.service';
 import { startComplianceGraceIfNeeded } from './rci.service';
 import { presentDoctor } from './doctorPrivacy';
+import { RCI_REQUIRED } from './rci.service';
 
 export const createDoctor = async (data: any) => {
     try {
@@ -145,7 +146,9 @@ const buildSearchFilter = (search: string) => {
                 { state: contains },
                 { address: contains },
                 { specialty: contains },
-                { AND: [{ name: contains }, { OR: [{ rciRegistrationId: { not: null } }, { rciCardVerifiedAt: { not: null } }] }] },
+                RCI_REQUIRED
+                    ? { AND: [{ name: contains }, { OR: [{ rciRegistrationId: { not: null } }, { rciCardVerifiedAt: { not: null } }] }] }
+                    : { name: contains },
             ],
         };
     });
@@ -177,7 +180,7 @@ export const getAllDoctors = async (page: number = 1, limit: number = 10, specia
             where.AND = buildSearchFilter(search);
         }
 
-        if (verifiedOnly) {
+        if (verifiedOnly && RCI_REQUIRED) {
             where.OR = [{ rciRegistrationId: { not: null } }, { rciCardVerifiedAt: { not: null } }];
         }
 
