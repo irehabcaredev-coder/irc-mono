@@ -10,7 +10,7 @@ export default function FindDoctors({ doctors = [], isLoading = false, searchQue
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
             <div className="mb-8">
                 <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900">Find Doctors</h1>
-                <p className="text-gray-600 mt-1">Search and connect with the best specialists for your needs.</p>
+                <p className="text-gray-600 mt-1">Search and connect with the best doctors for your needs.</p>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-8">

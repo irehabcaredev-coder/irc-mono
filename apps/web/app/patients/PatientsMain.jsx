@@ -162,7 +162,7 @@ export default function PatientsMain() {
                     <div className="mb-8 pt-6 border-t border-gray-200">
                         <h2 className="text-xl font-semibold text-gray-900 mb-4">How it works</h2>
                         <ol className="space-y-3 list-decimal list-inside text-gray-700">
-                            <li>Search specialist by name, clinic, or location</li>
+                            <li>Search doctors by name, clinic, or location</li>
                             <li>View profile and qualifications</li>
                             <li>Call or WhatsApp to consult</li>
                         </ol>

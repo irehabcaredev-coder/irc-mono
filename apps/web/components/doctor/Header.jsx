@@ -20,7 +20,7 @@ export default function Header() {
               href="/patients"
               className="text-gray-700 hover:text-primary-blue transition-colors"
             >
-              Find Specialists
+              Find Doctors
             </Link>
             <Link
               href="/for-doctors"

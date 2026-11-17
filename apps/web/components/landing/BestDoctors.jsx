@@ -47,7 +47,7 @@ export default function BestDoctors() {
           <div>
             <span className="text-blue-600 font-bold tracking-wider uppercase text-xs sm:text-sm mb-2 block flex items-center gap-2">
               <span className="w-8 h-px bg-blue-600" />
-              Top Rated Specialists
+              Top Rated Doctors
             </span>
             <h2 className="text-xl sm:text-2xl lg:text-4xl font-bold text-gray-900">
               Best doctors, picked by experience.

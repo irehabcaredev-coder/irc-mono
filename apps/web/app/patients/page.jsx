@@ -302,7 +302,7 @@ function PatientsContent() {
           <div className="mb-8 pt-6 border-t border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">How it works</h2>
             <ol className="space-y-3 list-decimal list-inside text-gray-700">
-              <li>Search specialist by name, clinic, or location</li>
+              <li>Search doctors by name, clinic, or location</li>
               <li>View profile and qualifications</li>
               <li>Call or WhatsApp to consult</li>
             </ol>
@@ -408,7 +408,7 @@ function PatientAppointments({ isAuthed, openAuthModal }) {
           </svg>
         </div>
         <h3 className="text-lg font-medium text-gray-900">No appointments scheduled</h3>
-        <p className="text-gray-500 mt-2">Find a specialist to book your first consultation.</p>
+        <p className="text-gray-500 mt-2">Find a doctor to book your first consultation.</p>
       </div>
     )
   }
