@@ -106,8 +106,8 @@ export const createOrder = async (amount: number, doctorRazorpayId: string, comm
 
 export const verifyPaymentSignature = (orderId: string, paymentId: string, signature: string) => {
     const crypto = require('crypto');
-    const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
-    hmac.update(orderId + "|" + paymentId);
-    const expectedSignature = hmac.digest('hex');
-    return expectedSignature === signature;
+    if (!process.env.RAZORPAY_KEY_SECRET || typeof orderId !== 'string' || typeof paymentId !== 'string' || typeof signature !== 'string') return false;
+    const expected = Buffer.from(crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(orderId + '|' + paymentId).digest('hex'));
+    const given = Buffer.from(signature);
+    return expected.length === given.length && crypto.timingSafeEqual(expected, given);
 };
