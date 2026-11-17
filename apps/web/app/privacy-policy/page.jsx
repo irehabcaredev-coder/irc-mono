@@ -10,7 +10,7 @@ const privacyPolicyText = `
 # PRIVACY POLICY
 
 **Effective Date:** 26/02/2026  
-**Last Updated:** 26/02/2026
+**Last Updated:** 17/11/2026
 
 ## 1. Introduction
 
@@ -52,7 +52,7 @@ Healthcare-related data is treated as Sensitive Personal Data and handled with e
 
 ### D. Analytics & Hosting Data
 We may use:
-- Google Analytics 4
+- Google Analytics 4 and Microsoft Clarity (which can record how a page is used, such as clicks and scrolling), to improve the website. These load only if you accept the cookie notice, and only on public pages. They never run on sign-in, onboarding, patient or doctor dashboards, AI chat or video-call pages. You can decline, and decline by default if you ignore the notice.
 - Hosting infrastructure logs (e.g., GCP, Vercel, or equivalent secure providers)
 - Security monitoring tools
 
@@ -96,12 +96,13 @@ Users must:
 
 ## 6. Data Retention
 
-We retain personal and medical data:
-- For the duration of active accounts
-- As required by applicable medical, financial, or regulatory laws
-- Until deletion is requested (subject to legal obligations)
+We keep data only as long as it is needed:
+- **Payment and transaction records:** 7 years, as required by financial and tax laws. After you delete your account these records are kept without your name, email, phone or other personal details.
+- **Everything else** (profile, health information you gave us, chats with our AI assistant, saved doctors, profile-view records): until you delete your account. Deleting your account from the app erases this data immediately, and in any case within 60 days.
+- **Guest AI chats and unfinished sign-ups:** deleted automatically after 60 days.
+- **Provider agreement receipts (doctors):** kept as the record of the contract.
 
-Upon valid deletion requests, data will be securely removed or anonymized unless retention is legally required.
+You can delete your account at any time from Settings in the app. We cannot delete an account that has upcoming appointments until they are completed or cancelled.
 
 ## 7. Data Sharing
 
@@ -112,6 +113,14 @@ Information may be shared only:
 - During mergers, acquisitions, or restructuring
 
 We do not sell or rent health data.
+
+## 7A. AI Features and Third-Party Processing
+
+Some features use an artificial-intelligence service provided by Z.ai (Zhipu AI), whose servers are outside India:
+- **AI chat assistant:** the messages you type are sent to the provider to generate replies. Do not enter anything you do not want processed this way.
+- **Matching:** when you view a doctor's profile, your age, gender, city, state and the health issues you listed (never your name, phone number or email) are sent to the provider to estimate how well the doctor fits your needs.
+
+The provider processes this data only to return a result for us. By accepting this Policy you consent to this transfer outside India. AI replies are general information, not medical advice or a diagnosis.
 
 ## 8. Emergency Services Disclaimer
 
@@ -166,16 +175,16 @@ You have the right to:
 - Withdraw consent
 - Nominate a representative (as per law)
 
-Requests may be sent to:  
+You can delete your account yourself from Settings in the app. For any other request, write to our Grievance Officer (section 14) or to:  
 📧 ${CONTACT_EMAIL}
 
 We will respond within reasonable timelines as required by law.
 
+When you create a patient account we record that you accepted this Policy, the date and time, and the version you accepted. You can withdraw consent at any time by deleting your account; withdrawing does not affect what was done before.
+
 ## 13. Children’s Privacy
 
-If services are provided to minors:
-- Parental or guardian consent is mandatory.
-- Parents may request access or deletion of child data.
+iRehabCare accounts are for adults aged 18 or over. We do not knowingly collect data directly from children. A parent or guardian who wants care for a child must use their own account and give only the information needed. If you believe a child has created an account, contact the Grievance Officer and we will delete it.
 
 ## 14. Grievance Redressal Officer
 
@@ -183,9 +192,9 @@ If services are provided to minors:
 
 In accordance with the Information Technology Act and Intermediary Guidelines Rules, the details of our Grievance Officer are:
 
-**Grievance Officer Name:** [To Be Appointed]  
+**Grievance Officer Name:** Vikrant Verma  
 **Company:** Fambience Private Limited  
-**Email:** ${CONTACT_EMAIL}  
+**Email:** Connect@irehabcare.com  
 **Phone:** ${CONTACT_PHONE}  
 
 **Registered Address:**  
