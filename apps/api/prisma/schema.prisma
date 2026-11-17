@@ -73,6 +73,7 @@ model Doctor {
     city     String?
     locality String?
     state    String?
+    country  String  @default("IND") // ISO 3166-1 alpha-3 code
 
     availableDays   DayOfWeek[]
     availableTiming String? // e.g., "09:00-17:00"
@@ -123,9 +124,10 @@ model Patient {
     phone  String?
     gender Gender?
     age    Int?
-    city   String?
-    state  String?
-    issues String[]
+    city    String?
+    state   String?
+    country String  @default("IND") // ISO 3166-1 alpha-3 code
+    issues  String[]
 
     onboardingStep PatientOnboardingStep @default(EMAIL_VERIFIED)
 
@@ -351,9 +353,11 @@ model City {
     id        String   @id @default(uuid())
     name      String
     state     String
+    country   String   @default("IND") // ISO 3166-1 alpha-3 code
     isCustom  Boolean  @default(false) // true when a user added it, false when seeded from the bundled list
     createdAt DateTime @default(now())
 
-    @@unique([name, state])
+    @@unique([name, state, country])
     @@index([name])
+    @@index([country])
 }
