@@ -815,8 +815,9 @@ function OnboardingContent() {
                     <CityPicker
                       value={practiceData?.city || ''}
                       state={practiceData?.state || ''}
-                      onSelect={({ name, state }) => {
-                        setPracticeData((prev) => ({ ...prev, city: name, state }))
+                      country={practiceData?.country || 'IND'}
+                      onSelect={({ name, state, country }) => {
+                        setPracticeData((prev) => ({ ...prev, city: name, state, country }))
                         setErrors((prev) => ({ ...prev, city: null, state: null }))
                       }}
                       placeholder="Search city"

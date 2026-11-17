@@ -160,6 +160,7 @@ export function transformPracticeDetailsToAPI(practiceData) {
     address: practiceData.address || '',
     city: practiceData.city || '',
     state: practiceData.state || '',
+    country: practiceData.country || 'IND',
     locality: null,
     availableDays: mapDaysToAPI(practiceData.availableDays || []),
     availableTiming: formatTimingToAPI(practiceData.timings),

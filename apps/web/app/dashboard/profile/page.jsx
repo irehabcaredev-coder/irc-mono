@@ -436,7 +436,8 @@ export default function ProfilePage() {
                       <CityPicker
                         value={practiceData.city || ''}
                         state={practiceData.state || ''}
-                        onSelect={({ name, state }) => setPracticeData((prev) => ({ ...prev, city: name, state }))}
+                        country={practiceData.country || 'IND'}
+                        onSelect={({ name, state, country }) => setPracticeData((prev) => ({ ...prev, city: name, state, country }))}
                       />
                     ) : (
                       <p className="text-gray-900">{practiceData.city || 'Not set'}</p>

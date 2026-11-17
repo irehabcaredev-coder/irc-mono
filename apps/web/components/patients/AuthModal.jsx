@@ -40,6 +40,7 @@ export default function AuthModal() {
   const [phone, setPhone] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
+  const [country, setCountry] = useState('IND')
   const [issues, setIssues] = useState('')
   const [nameError, setNameError] = useState('')
   const [ageError, setAgeError] = useState('')
@@ -268,6 +269,7 @@ export default function AuthModal() {
     setPhone('')
     setCity('')
     setState('')
+    setCountry('IND')
     setIssues('')
     setNameError('')
     setOtpSent(false)
@@ -320,6 +322,7 @@ export default function AuthModal() {
         age: parseInt(age),
         city,
         state: state.trim(),
+        country,
         issues: issues ? [issues] : [],
       })
 
@@ -339,6 +342,7 @@ export default function AuthModal() {
           phone: formattedPhone,
           city,
           state,
+          country,
         }
         handleAuthSuccess(patientEmail, profile)
         setActiveTab('DASHBOARD')
@@ -963,10 +967,12 @@ export default function AuthModal() {
                     <CityPicker
                       value={city}
                       state={state}
+                      country={country}
                       usePatientToken
-                      onSelect={({ name, state: cityState }) => {
+                      onSelect={({ name, state: cityState, country: cityCountry }) => {
                         setCity(name)
                         setState(cityState)
+                        setCountry(cityCountry)
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-transparent"
                     />

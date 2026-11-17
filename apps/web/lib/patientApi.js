@@ -92,6 +92,10 @@ export async function submitPatientPersonalInfo(patientId, personalInfo) {
       requestBody.state = personalInfo.state.trim()
     }
 
+    if (personalInfo.country) {
+      requestBody.country = personalInfo.country
+    }
+
     // Include issues if provided (should be an array)
     if (personalInfo.issues && Array.isArray(personalInfo.issues) && personalInfo.issues.length > 0) {
       requestBody.issues = personalInfo.issues
