@@ -8,7 +8,7 @@ export async function searchCities(q, limit = 20) {
 }
 
 // Pass usePatientToken when a patient is the one adding the city
-export async function addCity(name, state, { usePatientToken = false } = {}) {
-  const response = await apiPost('/cities', { name, state }, { usePatientToken })
+export async function addCity(name, state, country = 'IND', { usePatientToken = false } = {}) {
+  const response = await apiPost('/cities', { name, state, country }, { usePatientToken })
   return response.data
 }

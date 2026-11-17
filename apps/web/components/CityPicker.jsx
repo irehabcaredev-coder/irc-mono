@@ -11,13 +11,15 @@ const inputClass =
  * Searchable city dropdown backed by the City table, with an "Add city" option
  * when what was typed is not in the list.
  *
- * onSelect receives { name, state } for a picked or newly added city.
- * `state` prefills the state field of the add form.
+ * onSelect receives { name, state, country } for a picked or newly added city;
+ * country is an ISO alpha-3 code (IND, USA).
+ * `state` prefills the state field of the add form, `country` the country select.
  * allowAdd={false} makes it search-only (filters); onClear fires when the text is emptied.
  */
 export default function CityPicker({
   value,
   state = '',
+  country = 'IND',
   onSelect,
   placeholder = 'Search city',
   className = inputClass,
@@ -31,6 +33,7 @@ export default function CityPicker({
   const [loading, setLoading] = useState(false)
   const [adding, setAdding] = useState(false)
   const [newState, setNewState] = useState(state)
+  const [newCountry, setNewCountry] = useState(country)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const wrapRef = useRef(null)
@@ -77,7 +80,7 @@ export default function CityPicker({
     setQuery(city.name)
     setOpen(false)
     setAdding(false)
-    onSelect({ name: city.name, state: city.state })
+    onSelect({ name: city.name, state: city.state, country: city.country })
   }
 
   const trimmed = query.trim()
@@ -85,6 +88,7 @@ export default function CityPicker({
 
   const startAdd = () => {
     setNewState(state)
+    setNewCountry(country)
     setError('')
     setAdding(true)
   }
@@ -97,7 +101,7 @@ export default function CityPicker({
     setSaving(true)
     setError('')
     try {
-      const city = await addCity(trimmed, newState.trim(), { usePatientToken })
+      const city = await addCity(trimmed, newState.trim(), newCountry, { usePatientToken })
       pick(city)
     } catch (e) {
       setError(e?.message || 'Could not add city')
@@ -139,6 +143,14 @@ export default function CityPicker({
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent"
                 placeholder="State"
               />
+              <select
+                value={newCountry}
+                onChange={(e) => setNewCountry(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary-blue focus:border-transparent"
+              >
+                <option value="IND">India (IND)</option>
+                <option value="USA">United States (USA)</option>
+              </select>
               {error && <p className="text-xs text-accent-red">{error}</p>}
               <div className="flex gap-2">
                 <button
@@ -175,6 +187,7 @@ export default function CityPicker({
                   <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
                   <span className="text-gray-900">{c.name}</span>
                   <span className="text-gray-500">{c.state}</span>
+                  <span className="ml-auto text-xs text-gray-400">{c.country}</span>
                 </button>
               ))}
               {!loading && results.length === 0 && trimmed && (
