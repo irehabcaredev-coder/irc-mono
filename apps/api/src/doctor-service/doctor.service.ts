@@ -5,7 +5,8 @@ import bcrypt from 'bcrypt';
 import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, NOT_FOUND, UNAUTHORIZED, CONFLICT, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
 import * as emailService from '../email-service/email.service';
-import { generateOTP, generateToken } from '../google-auth-service/auth.service';
+import { generateToken } from '../google-auth-service/auth.service';
+import { generateOTP, hashOtp, otpMatches } from '../utils/otp';
 import { startComplianceGraceIfNeeded } from './rci.service';
 import { presentDoctor } from './doctorPrivacy';
 import { RCI_REQUIRED } from './rci.service';
@@ -22,7 +23,7 @@ export const createDoctor = async (data: any) => {
                  const hashedPassword = await bcrypt.hash(password, 10);
                  const updated = await prisma.doctor.update({
                     where: { email },
-                    data: { password: hashedPassword, otp, otpExpiry, onboardingStep: OnboardingStep.EMAIL_VERIFIED }
+                    data: { password: hashedPassword, otp: hashOtp(otp), otpExpiry, onboardingStep: OnboardingStep.EMAIL_VERIFIED }
                 });
                 await emailService.sendEmail(email, 'Your Verification Code', `<p>Your OTP is ${otp}</p>`);
                 return { doctor: updated, otp };
@@ -38,7 +39,7 @@ export const createDoctor = async (data: any) => {
             data: {
                 email,
                 password: hashedPassword,
-                otp,
+                otp: hashOtp(otp),
                 otpExpiry,
                 onboardingStep: OnboardingStep.EMAIL_VERIFIED
             }
@@ -56,8 +57,8 @@ export const createDoctor = async (data: any) => {
 export const verifyOtp = async (email: string, otp: string) => {
     try {
         const doctor = await prisma.doctor.findUnique({ where: { email } });
-        if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
-        if (!doctor.otp || doctor.otp !== otp) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!doctor) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!otpMatches(doctor.otp, otp)) throw new AppError('Invalid OTP', BAD_REQUEST);
         if (doctor.otpExpiry && new Date() > doctor.otpExpiry) throw new AppError('OTP Expired', BAD_REQUEST);
 
         const updated = await prisma.doctor.update({
@@ -206,7 +207,6 @@ export const getAllDoctors = async (page: number = 1, limit: number = 10, specia
                 orderBy: buildDoctorOrderBy(sortBy),
                 select: {
                     id: true,
-                    email: true,
                     name: true,
                     specialty: true,
                     city: true,
@@ -244,19 +244,20 @@ export const getAllDoctors = async (page: number = 1, limit: number = 10, specia
 export const forgotPassword = async (email: string) => {
     try {
         const doctor = await prisma.doctor.findUnique({ where: { email } });
-        if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
+        // Same answer whether or not the account exists, so this can't be used to find out who is registered
+        if (!doctor) return { message: 'If this email is registered, an OTP has been sent.' };
 
         const otp = generateOTP();
         const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
         await prisma.doctor.update({
             where: { email },
-            data: { otp, otpExpiry }
+            data: { otp: hashOtp(otp), otpExpiry }
         });
 
         await emailService.sendEmail(email, 'Reset Password OTP', `<p>Your OTP for password reset is ${otp}</p>`);
         
-        return { message: 'OTP sent', otp: process.env.NODE_ENV !== 'production' ? otp : undefined };
+        return { message: 'If this email is registered, an OTP has been sent.' };
     } catch (error: any) {
         if (error instanceof AppError) throw error;
         throw new AppError('Error initiating password reset: ' + error.message, INTERNAL_SERVER_ERROR);
@@ -266,8 +267,8 @@ export const forgotPassword = async (email: string) => {
 export const verifyResetOtp = async (email: string, otp: string) => {
     try {
         const doctor = await prisma.doctor.findUnique({ where: { email } });
-        if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
-        if (!doctor.otp || doctor.otp !== otp) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!doctor) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!otpMatches(doctor.otp, otp)) throw new AppError('Invalid OTP', BAD_REQUEST);
         if (doctor.otpExpiry && new Date() > doctor.otpExpiry) throw new AppError('OTP Expired', BAD_REQUEST);
 
         return { success: true };
@@ -280,8 +281,8 @@ export const verifyResetOtp = async (email: string, otp: string) => {
 export const resetPassword = async (email: string, otp: string, newPassword: string) => {
     try {
         const doctor = await prisma.doctor.findUnique({ where: { email } });
-        if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
-        if (!doctor.otp || doctor.otp !== otp) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!doctor) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!otpMatches(doctor.otp, otp)) throw new AppError('Invalid OTP', BAD_REQUEST);
         if (doctor.otpExpiry && new Date() > doctor.otpExpiry) throw new AppError('OTP Expired', BAD_REQUEST);
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -296,4 +297,63 @@ export const resetPassword = async (email: string, otp: string, newPassword: str
         if (error instanceof AppError) throw error;
         throw new AppError('Error resetting password: ' + error.message, INTERNAL_SERVER_ERROR);
     }
+};
+
+/**
+ * Erases a doctor's personal and payout data now and takes the profile off the listing. Appointment and payment
+ * rows stay, tied to the anonymous record, for the financial retention period (PAYMENT_RETENTION_YEARS).
+ * The signed provider agreement receipts are kept as the contract record.
+ */
+export const deleteDoctorAccount = async (doctorId: string) => {
+    const doctor = await prisma.doctor.findUnique({ where: { id: doctorId }, select: { id: true } });
+    if (!doctor) throw new AppError('Doctor not found', NOT_FOUND);
+
+    const upcoming = await prisma.appointment.count({
+        where: { doctorId, status: { in: ['PENDING', 'CONFIRMED'] }, scheduledEnd: { gt: new Date() } },
+    });
+    if (upcoming > 0) throw new AppError('You have upcoming appointments. Complete or cancel them before deleting your account.', CONFLICT);
+
+    await prisma.$transaction([
+        prisma.lead.deleteMany({ where: { doctorId } }),
+        prisma.rciCardSubmission.deleteMany({ where: { doctorId } }),
+        prisma.aiChat.deleteMany({ where: { userType: 'doctor', userId: doctorId } }),
+        prisma.aiSession.deleteMany({ where: { userType: 'doctor', userId: doctorId } }),
+        prisma.doctor.update({
+            where: { id: doctorId },
+            data: {
+                email: `deleted-${doctorId}@deleted.invalid`,
+                password: null,
+                googleId: null,
+                name: null,
+                age: null,
+                gender: null,
+                languages: [],
+                contactNumber: null,
+                whatsappNumber: null,
+                specialty: null,
+                yearsOfExperience: null,
+                latestQualification: null,
+                address: null,
+                city: null,
+                locality: null,
+                state: null,
+                availableDays: [],
+                availableTiming: null,
+                consultationFee: null,
+                razorpayAccountId: null,
+                bankAccountNumber: null,
+                bankIfsc: null,
+                bankBeneficiaryName: null,
+                otp: null,
+                otpExpiry: null,
+                rciRegistrationId: null,
+                rciCardVerifiedAt: null,
+                complianceDeadline: null,
+                contactConsentAt: null,
+                deletedAt: new Date(),
+                onboardingStep: OnboardingStep.EMAIL_VERIFIED, // not COMPLETE, so it never appears in the listing
+                savedByPatients: { set: [] },
+            },
+        }),
+    ]);
 };

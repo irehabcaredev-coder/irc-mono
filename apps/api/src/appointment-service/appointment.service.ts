@@ -1,10 +1,12 @@
 
 import prisma from '../config/prisma';
 import { AppError } from '../utils/AppError';
-import { BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
+import { BAD_REQUEST, FORBIDDEN, NOT_FOUND, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
 import * as emailService from '../email-service/email.service';
 import { AppointmentStatus } from '@prisma/client';
 import { presentDoctor } from '../doctor-service/doctorPrivacy';
+
+const escapeHtml = (v: string) => v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 export const scheduleAppointment = async (doctorId: string, patientId: string, scheduledAt: string, scheduledEnd: string, meetingName: string) => {
     try {
@@ -15,10 +17,15 @@ export const scheduleAppointment = async (doctorId: string, patientId: string, s
             throw new AppError('Doctor or Patient not found', NOT_FOUND);
         }
 
+        // A doctor can only book patients who have looked at their profile, never an arbitrary account
+        const lead = await prisma.lead.findUnique({ where: { doctorId_patientId: { doctorId, patientId } }, select: { id: true } });
+        if (!lead) throw new AppError('This patient has not contacted you', FORBIDDEN);
+        if (patient.shareContactWithDoctors !== true) throw new AppError('This patient has not agreed to be contacted by doctors', FORBIDDEN);
+
         const appointmentStart = new Date(scheduledAt);
         const appointmentEnd = new Date(scheduledEnd);
 
-        if (isNaN(appointmentStart.getTime()) || isNaN(appointmentEnd.getTime())) {
+        if (isNaN(appointmentStart.getTime()) || isNaN(appointmentEnd.getTime()) || appointmentEnd <= appointmentStart) {
             throw new AppError('Invalid date format', BAD_REQUEST);
         }
 
@@ -35,18 +42,18 @@ export const scheduleAppointment = async (doctorId: string, patientId: string, s
 
         // Send confirmation emails
         const doctorHtml = `
-            <p>You have a new appointment scheduled with ${patient.name}.</p>
+            <p>You have a new appointment scheduled with ${escapeHtml(patient.name ?? 'a patient')}.</p>
             <p>Start: ${appointmentStart.toLocaleString()}</p>
             <p>End: ${appointmentEnd.toLocaleString()}</p>
-            <p>Meeting Name: ${meetingName}</p>
+            <p>Meeting Name: ${escapeHtml(meetingName)}</p>
         `;
         await emailService.sendEmail(doctor.email, 'New Appointment Scheduled', doctorHtml);
 
         const patientHtml = `
-            <p>Your appointment with Dr. ${doctor.name} has been scheduled.</p>
+            <p>Your appointment with Dr. ${escapeHtml(doctor.name ?? '')} has been scheduled.</p>
             <p>Start: ${appointmentStart.toLocaleString()}</p>
             <p>End: ${appointmentEnd.toLocaleString()}</p>
-            <p>Meeting Name: ${meetingName}</p>
+            <p>Meeting Name: ${escapeHtml(meetingName)}</p>
         `;
         await emailService.sendEmail(patient.email, 'Appointment Confirmation', patientHtml);
 
@@ -63,7 +70,7 @@ export const getDoctorAppointments = async (doctorId: string, page: number = 1, 
         const [appointments, total] = await Promise.all([
             prisma.appointment.findMany({
                 where: { doctorId },
-                include: { patient: true },
+                include: { patient: { select: { id: true, name: true, phone: true, age: true, gender: true, city: true, state: true, issues: true } } },
                 orderBy: { scheduledAt: 'asc' },
                 skip,
                 take: limit

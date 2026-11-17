@@ -13,6 +13,8 @@ export const onboardingPersonalInfoSchema = z.object({
         languages: z.array(z.string()).min(1),
         contactNumber: z.string().refine(isValidInternationalPhone, PHONE_ERROR),
         whatsappNumber: z.string().refine(isValidInternationalPhone, PHONE_ERROR),
+        // The doctor agrees these numbers are shown on their public profile
+        contactConsent: z.literal(true, { message: 'Please agree to show your contact numbers on your profile' }),
     }),
 });
 

@@ -5,6 +5,8 @@ import { NOT_FOUND, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
 import * as emailService from '../email-service/email.service';
 import * as aiService from '../ai-service/ai.service';
 
+const escapeHtml = (v: string) => v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
 export const registerProfileView = async (doctorId: string, patientId: string) => {
     try {
         const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } });
@@ -23,7 +25,7 @@ export const registerProfileView = async (doctorId: string, patientId: string) =
         });
 
         const now = new Date();
-        let shouldSendEmail = true;
+        let shouldSendEmail = false;
 
         if (!existingLead) {
             const newLead = await prisma.lead.create({
@@ -33,9 +35,8 @@ export const registerProfileView = async (doctorId: string, patientId: string) =
             void aiService.qualifyLead(newLead.id);
             shouldSendEmail = true;
         } else {
-            const lastViewed = new Date(existingLead.viewedAt);
-            const hoursSinceLastView = (now.getTime() - lastViewed.getTime()) / (1000 * 60 * 60);
-
+            // A returning viewer only triggers another email after a day
+            const hoursSinceLastView = (now.getTime() - existingLead.viewedAt.getTime()) / (1000 * 60 * 60);
             if (hoursSinceLastView >= 24) shouldSendEmail = true;
 
             await prisma.lead.update({
@@ -45,44 +46,26 @@ export const registerProfileView = async (doctorId: string, patientId: string) =
         }
 
         if (shouldSendEmail) {
-            console.log(`[LeadService] Sending email to ${doctor.email} for lead from ${patient.name}`);
-            const subject = existingLead ? 'Patient Re-visited Your Profile' : 'New Patient Lead';
+            // The email carries no patient details: the doctor sees who it was inside their dashboard, after signing in
+            const subject = existingLead ? 'A patient viewed your profile again' : 'A patient viewed your profile';
             const html = `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
                     <div style="background-color: #2D3748; padding: 20px; text-align: center;">
-                        <h2 style="color: #ffffff; margin: 0;">New Patient Lead</h2>
+                        <h2 style="color: #ffffff; margin: 0;">New profile view</h2>
                     </div>
                     <div style="padding: 20px; background-color: #f9fafb;">
-                        <p style="font-size: 16px; color: #4a5568;">Hello Dr. ${doctor.name},</p>
-                        <p style="font-size: 16px; color: #4a5568;">A patient has just viewed your profile on ECare+. Here are their details:</p>
-                        
-                        <div style="background-color: #ffffff; padding: 15px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 15px;">
-                            <h3 style="color: #2d3748; margin-top: 0; border-bottom: 1px solid #edf2f7; padding-bottom: 10px;">Patient Information</h3>
-                            <table style="width: 100%; border-collapse: collapse;">
-                                <tr>
-                                    <td style="padding: 8px 0; color: #718096; font-weight: bold; width: 40%;">Name:</td>
-                                    <td style="padding: 8px 0; color: #2d3748;">${patient.name}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0; color: #718096; font-weight: bold;">Phone:</td>
-                                    <td style="padding: 8px 0; color: #2d3748;">${patient.phone || 'Not provided'}</td>
-                                </tr>
-                            </table>
-                        </div>
-                        
+                        <p style="font-size: 16px; color: #4a5568;">Hello ${escapeHtml(doctor.name ?? 'Doctor')},</p>
+                        <p style="font-size: 16px; color: #4a5568;">A patient has just viewed your profile on iRehabCare. Sign in to see the details.</p>
                         <div style="margin-top: 25px; text-align: center;">
-                            <a href="${process.env.FRONTEND_URL || '#'}/dashboard/leads" style="background-color: #4299e1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Full Profile</a>
+                            <a href="${escapeHtml(process.env.FRONTEND_URL || '#')}/dashboard/leads" style="background-color: #4299e1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">View in dashboard</a>
                         </div>
                     </div>
                     <div style="background-color: #edf2f7; padding: 15px; text-align: center; font-size: 12px; color: #718096;">
-                        &copy; ${new Date().getFullYear()} ECare+. All rights reserved.
+                        &copy; ${new Date().getFullYear()} iRehabCare. All rights reserved.
                     </div>
                 </div>
             `;
-            const sent = await emailService.sendEmail(doctor.email, subject, html);
-            console.log(`[LeadService] Email sent result: ${sent}`);
-        } else {
-            console.log(`[LeadService] Email NOT sent. Existing lead: ${!!existingLead}.`);
+            await emailService.sendEmail(doctor.email, subject, html);
         }
     } catch (error: any) {
         if (error instanceof AppError) throw error;
@@ -97,7 +80,7 @@ export const getLeadsForDoctor = async (doctorId: string, page: number = 1, limi
             prisma.lead.findMany({
                 where: { doctorId },
                 // Only what a doctor needs to follow up; never credentials or OTP state
-                include: { patient: { select: { id: true, name: true, phone: true, city: true, state: true, age: true, gender: true, issues: true } } },
+                include: { patient: { select: { id: true, name: true, phone: true, city: true, state: true, age: true, gender: true, issues: true, shareContactWithDoctors: true } } },
                 orderBy: { viewedAt: 'desc' },
                 skip,
                 take: limit
@@ -105,8 +88,20 @@ export const getLeadsForDoctor = async (doctorId: string, page: number = 1, limi
             prisma.lead.count({ where: { doctorId } })
         ]);
 
+        // Name, phone and health concerns are shown only when the patient explicitly agreed to share them
+        const data = leads.map((lead) => {
+            const { shareContactWithDoctors, ...patient } = lead.patient;
+            const shared = shareContactWithDoctors === true;
+            return {
+                ...lead,
+                patient: shared
+                    ? { ...patient, contactShared: true }
+                    : { id: patient.id, name: null, phone: null, city: null, state: null, age: null, gender: null, issues: [], contactShared: false },
+            };
+        });
+
         return {
-            data: leads,
+            data,
             meta: {
                 total,
                 page,

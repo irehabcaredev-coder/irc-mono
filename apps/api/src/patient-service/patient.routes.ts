@@ -2,29 +2,26 @@
 import { Router, Request, Response } from 'express';
 import asyncHandler from '../utils/asyncHandler';
 import { AppError } from '../utils/AppError';
-import { NOT_FOUND } from '../utils/httpStatusCodes';
 import validate from '../middlewares/validateResource';
-import { patientPersonalInfoSchema } from './patient.schema';
+import { patientPersonalInfoSchema, patientPreferencesSchema } from './patient.schema';
 import * as patientService from './patient.service';
-import { signupSchema, loginSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../google-auth-service/auth.schema';
+import { patientSignupSchema, loginSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../google-auth-service/auth.schema';
 import { authenticateJWT, AuthenticatedRequest } from '../middlewares/auth.middleware';
+import { authLimiter, otpLimiter } from '../middlewares/rateLimit';
+import { FORBIDDEN, NOT_FOUND } from '../utils/httpStatusCodes';
 
 const router = Router();
 
-router.post('/onboarding/auth', validate(signupSchema), asyncHandler(async (req: Request, res: Response) => {
-    const { patient, otp } = await patientService.createPatient(req.body);
-    const isDev = process.env.NODE_ENV !== 'production';
+router.post('/onboarding/auth', authLimiter, validate(patientSignupSchema), asyncHandler(async (req: Request, res: Response) => {
+    const { patient } = await patientService.createPatient(req.body);
     res.status(201).json({ 
         success: true, 
         message: 'Account created successfully.', 
-        data: { 
-            patientId: patient.id,
-            mockOtp: isDev ? otp : undefined
-        } 
+        data: { patientId: patient.id } 
     });
 }));
 
-router.post('/login', validate(loginSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/login', authLimiter, validate(loginSchema), asyncHandler(async (req: Request, res: Response) => {
     const { patient, token } = await patientService.loginPatient(req.body);
     res.json({ 
         success: true, 
@@ -39,7 +36,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req: Request, r
     });
 }));
 
-router.post('/onboarding/verify-otp', validate(verifyOtpSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/onboarding/verify-otp', otpLimiter, validate(verifyOtpSchema), asyncHandler(async (req: Request, res: Response) => {
     const { email, otp } = req.body;
     const { patient, token } = await patientService.verifyOtp(email, otp);
     res.json({ 
@@ -54,61 +51,79 @@ router.post('/onboarding/verify-otp', validate(verifyOtpSchema), asyncHandler(as
 }));
 
 
-router.post('/onboarding/personal-info', validate(patientPersonalInfoSchema), asyncHandler(async (req: Request, res: Response) => {
-    const { patientId, ...data } = req.body;
-    const updated = await patientService.updatePatientProfile(patientId, { ...data, onboardingStep: 'PERSONAL_INFO_COMPLETE' });
-    res.json({ success: true, data: updated });
+// Profile writes always target the signed-in patient; an id in the request body is never trusted
+const requirePatient = (req: AuthenticatedRequest): string => {
+    if (req.user?.type !== 'patient') throw new AppError('Forbidden', FORBIDDEN);
+    return req.user.id;
+};
+
+router.post('/onboarding/personal-info', authenticateJWT, validate(patientPersonalInfoSchema), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const patientId = requirePatient(req);
+    const { patientId: _ignored, ...data } = req.body;
+    const updated = await patientService.updatePatientProfile(patientId, {
+        ...data,
+        ...(typeof data.shareContactWithDoctors === 'boolean' ? { shareContactAt: new Date() } : {}),
+        onboardingStep: 'PERSONAL_INFO_COMPLETE',
+    });
+    res.json({ success: true, data: patientService.presentPatient(updated) });
 }));
 
 // Auth Routes - Password Reset
-router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
     const result = await patientService.forgotPassword(req.body.email);
     res.json({ ...result });
 }));
 
-router.post('/verify-reset-otp', validate(verifyOtpSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/verify-reset-otp', otpLimiter, validate(verifyOtpSchema), asyncHandler(async (req: Request, res: Response) => {
     const { email, otp } = req.body;
     const result = await patientService.verifyResetOtp(email, otp);
     res.json({ success: true, data: result });
 }));
 
-router.post('/reset-password', validate(resetPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/reset-password', otpLimiter, validate(resetPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
     const { email, otp, newPassword } = req.body;
     const result = await patientService.resetPassword(email, otp, newPassword);
     res.json({ ...result });
 }));
 
-router.get('/', asyncHandler(async (req: Request, res: Response) => {
-    const patients = await patientService.getAllPatients();
-    res.json({ success: true, data: patients });
+// The patient's own choice about what doctors may see; can be changed at any time
+router.patch('/me/preferences', authenticateJWT, validate(patientPreferencesSchema), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const updated = await patientService.updatePatientProfile(requirePatient(req), {
+        shareContactWithDoctors: req.body.shareContactWithDoctors,
+        shareContactAt: new Date(),
+    });
+    res.json({ success: true, data: patientService.presentPatient(updated) });
+}));
+
+// Account deletion: personal data is erased now; payment records are kept for the legal retention period
+router.delete('/me', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await patientService.deletePatientAccount(requirePatient(req));
+    res.json({ success: true, message: 'Your account and personal data have been deleted.' });
 }));
 
 // Saved Doctors
 router.post('/saved-doctors', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { doctorId } = req.body;
-    // Assuming patientId comes from token or body? Legacy controller would clarify. 
-    // Usually token. 
-    const patientId = req.user?.id || req.body.patientId; 
-    const result = await patientService.saveDoctor(patientId, doctorId);
+    const result = await patientService.saveDoctor(requirePatient(req), req.body.doctorId);
     res.json({ success: true, data: result });
 }));
 
 router.delete('/saved-doctors', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { doctorId } = req.body;
-    const patientId = req.user?.id || req.body.patientId;
-    const result = await patientService.unsaveDoctor(patientId, doctorId);
+    const result = await patientService.unsaveDoctor(requirePatient(req), req.body.doctorId);
     res.json({ success: true, data: result });
 }));
 
-router.get('/:patientId/saved-doctors', authenticateJWT, asyncHandler(async (req: Request, res: Response) => {
+router.get('/:patientId/saved-doctors', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (requirePatient(req) !== req.params.patientId) throw new AppError('Forbidden', FORBIDDEN);
     const result = await patientService.getSavedDoctors(req.params.patientId as string);
     res.json({ success: true, data: result });
 }));
 
-router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
+// A patient can read only their own record
+router.get('/:id', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (requirePatient(req) !== req.params.id) throw new AppError('Forbidden', FORBIDDEN);
     const patient = await patientService.findPatientById(req.params.id as string);
     if (!patient) throw new AppError('Patient not found', NOT_FOUND);
-    res.json({ success: true, data: patient });
+    res.json({ success: true, data: patientService.presentPatient(patient) });
 }));
 
 export default router;

@@ -16,6 +16,7 @@ import * as leadService from '../lead-service/lead.service'; // For lead compati
 import { signupSchema, loginSchema, verifyOtpSchema, forgotPasswordSchema, resetPasswordSchema } from '../google-auth-service/auth.schema';
 import { NextFunction, Request, Response } from 'express';
 import { authenticateJWT, AuthenticatedRequest } from '../middlewares/auth.middleware'; // Import Auth Middleware
+import { authLimiter, otpLimiter } from '../middlewares/rateLimit';
 
 const router = Router();
 
@@ -29,24 +30,23 @@ const uploadCard = (req: Request, res: Response, next: NextFunction) =>
         next(err);
     });
 
-// Wrap async functions
-// Wrap async functions - using imported asyncHandler
+// Profile writes always target the signed-in doctor; an id in the request body is never trusted
+const onboardingDoctorId = (req: AuthenticatedRequest): string => {
+    if (req.user?.type !== 'doctor') throw new AppError('Forbidden', FORBIDDEN);
+    return req.user.doctorId;
+};
 
 // Auth Routes for Doctor
-router.post('/onboarding/auth', validate(signupSchema), asyncHandler(async (req: Request, res: Response) => {
-    const { doctor, otp } = await doctorService.createDoctor(req.body);
-    const isDev = process.env.NODE_ENV !== 'production';
+router.post('/onboarding/auth', authLimiter, validate(signupSchema), asyncHandler(async (req: Request, res: Response) => {
+    const { doctor } = await doctorService.createDoctor(req.body);
     res.status(201).json({ 
         success: true, 
         message: 'Account created successfully.', 
-        data: { 
-            doctorId: doctor.id,
-            mockOtp: isDev ? otp : undefined 
-        } 
+        data: { doctorId: doctor.id } 
     });
 }));
 
-router.post('/login', validate(loginSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/login', authLimiter, validate(loginSchema), asyncHandler(async (req: Request, res: Response) => {
     const { doctor, token } = await doctorService.loginDoctor(req.body);
     res.json({ 
         success: true, 
@@ -61,7 +61,7 @@ router.post('/login', validate(loginSchema), asyncHandler(async (req: Request, r
     });
 }));
 
-router.post('/onboarding/verify-otp', validate(verifyOtpSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/onboarding/verify-otp', otpLimiter, validate(verifyOtpSchema), asyncHandler(async (req: Request, res: Response) => {
     const { email, otp } = req.body;
     const { doctor, token } = await doctorService.verifyOtp(email, otp);
     res.json({ 
@@ -94,31 +94,35 @@ router.get('/onboarding/rci-card', authenticateJWT, asyncHandler(async (req: Aut
     res.json({ success: true, data: await rciService.getCardStatus(req.user.doctorId) });
 }));
 
-router.post('/onboarding/personal-info', validate(onboardingPersonalInfoSchema), asyncHandler(async (req: Request, res: Response) => {
-    const { doctorId, ...data } = req.body;
+router.post('/onboarding/personal-info', authenticateJWT, validate(onboardingPersonalInfoSchema), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const doctorId = onboardingDoctorId(req);
+    const { doctorId: _ignored, contactConsent: _consent, ...data } = req.body;
     await rciService.assertRciVerified(doctorId);
-    const updated = await doctorService.updateDoctorProfile(doctorId, { ...data, onboardingStep: 'PROFESSIONAL_INFO_COMPLETE' }); 
+    const updated = await doctorService.updateDoctorProfile(doctorId, { ...data, contactConsentAt: new Date(), onboardingStep: 'PROFESSIONAL_INFO_COMPLETE' }); 
     res.json({ success: true, data: updated });
 }));
 
-router.post('/onboarding/professional-info', validate(onboardingProfessionalInfoSchema), asyncHandler(async (req: Request, res: Response) => {
-    const { doctorId, ...data } = req.body;
+router.post('/onboarding/professional-info', authenticateJWT, validate(onboardingProfessionalInfoSchema), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const doctorId = onboardingDoctorId(req);
+    const { doctorId: _ignored, ...data } = req.body;
     await rciService.assertRciVerified(doctorId);
     await assertAgreementAccepted(doctorId);
     const updated = await doctorService.updateDoctorProfile(doctorId, { ...data, onboardingStep: 'AVAILABILITY_COMPLETE' }); 
     res.json({ success: true, data: updated });
 }));
 
-router.post('/onboarding/availability', validate(onboardingAvailabilitySchema), asyncHandler(async (req: Request, res: Response) => {
-    const { doctorId, ...data } = req.body;
+router.post('/onboarding/availability', authenticateJWT, validate(onboardingAvailabilitySchema), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const doctorId = onboardingDoctorId(req);
+    const { doctorId: _ignored, ...data } = req.body;
     await rciService.assertRciVerified(doctorId);
     await assertAgreementAccepted(doctorId);
     const updated = await doctorService.updateDoctorProfile(doctorId, { ...data, onboardingStep: 'PAYMENT_INFO_COMPLETE' }); 
     res.json({ success: true, data: updated });
 }));
 
-router.post('/onboarding/payment-info', validate(onboardingPaymentInfoSchema), asyncHandler(async (req: Request, res: Response) => {
-    const { doctorId, consultationFee, ...bankData } = req.body;
+router.post('/onboarding/payment-info', authenticateJWT, validate(onboardingPaymentInfoSchema), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const doctorId = onboardingDoctorId(req);
+    const { doctorId: _ignored, consultationFee, ...bankData } = req.body;
     await rciService.assertRciVerified(doctorId);
     await assertAgreementAccepted(doctorId);
     const doctor = await doctorService.findDoctorById(doctorId);
@@ -149,18 +153,18 @@ router.post('/onboarding/payment-info', validate(onboardingPaymentInfoSchema), a
 }));
 
 // Auth Routes - Password Reset
-router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
     const result = await doctorService.forgotPassword(req.body.email);
     res.json({ ...result });
 }));
 
-router.post('/verify-reset-otp', validate(verifyOtpSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/verify-reset-otp', otpLimiter, validate(verifyOtpSchema), asyncHandler(async (req: Request, res: Response) => {
     const { email, otp } = req.body;
     const result = await doctorService.verifyResetOtp(email, otp);
     res.json({ success: true, data: result });
 }));
 
-router.post('/reset-password', validate(resetPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
+router.post('/reset-password', otpLimiter, validate(resetPasswordSchema), asyncHandler(async (req: Request, res: Response) => {
     const { email, otp, newPassword } = req.body;
     const result = await doctorService.resetPassword(email, otp, newPassword);
     res.json({ ...result });
@@ -169,14 +173,14 @@ router.post('/reset-password', validate(resetPasswordSchema), asyncHandler(async
 const VALID_DOCTOR_SORT_OPTIONS = ['experience_desc', 'experience_asc'];
 
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
     const specialty = req.query.specialty as string | undefined;
     const sortByParam = req.query.sortBy as string | undefined;
     const sortBy = VALID_DOCTOR_SORT_OPTIONS.includes(sortByParam || '') ? sortByParam : undefined;
     const search = typeof req.query.search === 'string' ? req.query.search : undefined;
     const language = typeof req.query.lang === 'string' && req.query.lang.trim() ? req.query.lang.trim() : undefined;
-    const viewer = getOptionalUser(req);
+    const viewer = await getOptionalUser(req);
     const result = await doctorService.getAllDoctors(page, limit, specialty, sortBy, search, req.query.verified === 'true', {
         language,
         savedOnly: req.query.saved === 'true',
@@ -184,6 +188,18 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     });
     res.json({ success: true, ...result });
 }));
+// Older doctors accept from their dashboard that their contact numbers are shown publicly
+router.post('/me/contact-consent', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const updated = await doctorService.updateDoctorProfile(onboardingDoctorId(req), { contactConsentAt: new Date() });
+    res.json({ success: true, data: { contactConsentAt: updated.contactConsentAt } });
+}));
+
+// Account deletion: personal data is erased now; payment records are kept for the legal retention period
+router.delete('/me', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    await doctorService.deleteDoctorAccount(onboardingDoctorId(req));
+    res.json({ success: true, message: 'Your account and personal data have been deleted.' });
+}));
+
 router.get('/:id/leads', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
      if (req.user?.type !== 'doctor' || req.user.doctorId !== req.params.id) throw new AppError('Forbidden', FORBIDDEN);
      await rciService.assertCompliant(req.user.doctorId);
@@ -204,11 +220,10 @@ router.get('/:id',authenticateJWT, asyncHandler(async (req: AuthenticatedRequest
     res.json({ success: true, data });
 }));
 
-router.post('/:id/view',authenticateJWT, asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string;
-    const { patientId } = req.body;
-    if (patientId) {
-        await leadService.registerProfileView(id, patientId);
+router.post('/:id/view', authenticateJWT, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    // The viewer is whoever the token says: a patient id from the body is never trusted
+    if (req.user?.type === 'patient') {
+        await leadService.registerProfileView(req.params.id as string, req.user.id);
     }
     res.json({ success: true, message: 'View registered' });
 }));

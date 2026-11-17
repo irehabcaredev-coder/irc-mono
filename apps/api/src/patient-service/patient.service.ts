@@ -6,11 +6,14 @@ import bcrypt from 'bcrypt';
 import { AppError } from '../utils/AppError';
 import { BAD_REQUEST, NOT_FOUND, UNAUTHORIZED, CONFLICT, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
 import * as emailService from '../email-service/email.service';
-import { generateOTP, generateToken } from '../google-auth-service/auth.service';
+import { PRIVACY_POLICY_VERSION } from '../config/retention';
+import { generateToken } from '../google-auth-service/auth.service';
+import { generateOTP, hashOtp, otpMatches } from '../utils/otp';
 
 export const createPatient = async (data: any) => {
     try {
         const { email, password } = data;
+        const consent = { privacyConsentAt: new Date(), privacyConsentVersion: PRIVACY_POLICY_VERSION };
         const existingPatient = await prisma.patient.findUnique({ where: { email } });
 
         if (existingPatient) {
@@ -20,7 +23,7 @@ export const createPatient = async (data: any) => {
                  const hashedPassword = await bcrypt.hash(password, 10);
                 const updated = await prisma.patient.update({
                     where: { email },
-                    data: { password: hashedPassword, otp, otpExpiry, onboardingStep: PatientOnboardingStep.EMAIL_VERIFIED }
+                    data: { password: hashedPassword, otp: hashOtp(otp), otpExpiry, onboardingStep: PatientOnboardingStep.EMAIL_VERIFIED, ...consent }
                 });
                 await emailService.sendEmail(email, 'Your Verification Code', `<p>Your OTP is ${otp}</p>`);
                 return { patient: updated, otp };
@@ -36,9 +39,10 @@ export const createPatient = async (data: any) => {
             data: {
                 email,
                 password: hashedPassword,
-                otp,
+                otp: hashOtp(otp),
                 otpExpiry,
-                onboardingStep: PatientOnboardingStep.EMAIL_VERIFIED
+                onboardingStep: PatientOnboardingStep.EMAIL_VERIFIED,
+                ...consent
             }
         });
 
@@ -54,8 +58,8 @@ export const createPatient = async (data: any) => {
 export const verifyOtp = async (email: string, otp: string) => {
     try {
         const patient = await prisma.patient.findUnique({ where: { email } });
-        if (!patient) throw new AppError('Patient not found', NOT_FOUND);
-        if (!patient.otp || patient.otp !== otp) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!patient) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!otpMatches(patient.otp, otp)) throw new AppError('Invalid OTP', BAD_REQUEST);
         if (patient.otpExpiry && new Date() > patient.otpExpiry) throw new AppError('OTP Expired', BAD_REQUEST);
 
         const updated = await prisma.patient.update({
@@ -100,6 +104,12 @@ export const updatePatientProfile = async (id: string, data: any) => {
     }
 };
 
+// What a patient may see of their own record: never the password hash, OTP state or Google id
+export const presentPatient = <T extends Record<string, any>>(patient: T) => {
+    const { password, otp, otpExpiry, googleId, ...safe } = patient;
+    return safe;
+};
+
 export const findPatientByEmail = async (email: string) => {
     try {
         return await prisma.patient.findUnique({ where: { email } });
@@ -116,44 +126,23 @@ export const findPatientById = async (id: string) => {
     }
 };
 
-export const getAllPatients = async () => {
-    try {
-        return await prisma.patient.findMany({
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                phone: true,
-                gender: true,
-                age: true,
-                city: true,
-                state: true,
-                country: true,
-                issues: true,
-                onboardingStep: true,
-            }
-        });
-    } catch (error: any) {
-        throw new AppError('Error fetching patients: ' + error.message, INTERNAL_SERVER_ERROR);
-    }
-};
-
 export const forgotPassword = async (email: string) => {
     try {
         const patient = await prisma.patient.findUnique({ where: { email } });
-        if (!patient) throw new AppError('Patient not found', NOT_FOUND);
+        // Same answer whether or not the account exists, so this can't be used to find out who is registered
+        if (!patient) return { message: 'If this email is registered, an OTP has been sent.' };
 
         const otp = generateOTP();
         const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
         await prisma.patient.update({
             where: { email },
-            data: { otp, otpExpiry }
+            data: { otp: hashOtp(otp), otpExpiry }
         });
 
         await emailService.sendEmail(email, 'Reset Password OTP', `<p>Your OTP for password reset is ${otp}</p>`);
         
-        return { message: 'OTP sent', otp: process.env.NODE_ENV !== 'production' ? otp : undefined };
+        return { message: 'If this email is registered, an OTP has been sent.' };
     } catch (error: any) {
         if (error instanceof AppError) throw error;
         throw new AppError('Error initiating password reset: ' + error.message, INTERNAL_SERVER_ERROR);
@@ -163,8 +152,8 @@ export const forgotPassword = async (email: string) => {
 export const verifyResetOtp = async (email: string, otp: string) => {
     try {
         const patient = await prisma.patient.findUnique({ where: { email } });
-        if (!patient) throw new AppError('Patient not found', NOT_FOUND);
-        if (!patient.otp || patient.otp !== otp) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!patient) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!otpMatches(patient.otp, otp)) throw new AppError('Invalid OTP', BAD_REQUEST);
         if (patient.otpExpiry && new Date() > patient.otpExpiry) throw new AppError('OTP Expired', BAD_REQUEST);
 
         return { success: true };
@@ -177,8 +166,8 @@ export const verifyResetOtp = async (email: string, otp: string) => {
 export const resetPassword = async (email: string, otp: string, newPassword: string) => {
     try {
         const patient = await prisma.patient.findUnique({ where: { email } });
-        if (!patient) throw new AppError('Patient not found', NOT_FOUND);
-        if (!patient.otp || patient.otp !== otp) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!patient) throw new AppError('Invalid OTP', BAD_REQUEST);
+        if (!otpMatches(patient.otp, otp)) throw new AppError('Invalid OTP', BAD_REQUEST);
         if (patient.otpExpiry && new Date() > patient.otpExpiry) throw new AppError('OTP Expired', BAD_REQUEST);
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -246,4 +235,48 @@ export const getSavedDoctors = async (patientId: string) => {
         if (error instanceof AppError) throw error;
         throw new AppError('Error fetching saved doctors: ' + error.message, INTERNAL_SERVER_ERROR);
     }
+};
+
+/**
+ * Erases a patient's personal data now. Appointments and payments stay, tied to an anonymous row, for the
+ * financial retention period (PAYMENT_RETENTION_YEARS). Everything else is removed immediately, which is inside
+ * the OTHER_DATA_RETENTION_DAYS window.
+ */
+export const deletePatientAccount = async (patientId: string) => {
+    const patient = await prisma.patient.findUnique({ where: { id: patientId }, select: { id: true } });
+    if (!patient) throw new AppError('Patient not found', NOT_FOUND);
+
+    const upcoming = await prisma.appointment.count({
+        where: { patientId, status: { in: ['PENDING', 'CONFIRMED'] }, scheduledEnd: { gt: new Date() } },
+    });
+    if (upcoming > 0) throw new AppError('You have upcoming appointments. Cancel them before deleting your account.', CONFLICT);
+
+    await prisma.$transaction([
+        prisma.lead.deleteMany({ where: { patientId } }),
+        prisma.aiChat.deleteMany({ where: { userType: 'patient', userId: patientId } }),
+        prisma.aiSession.deleteMany({ where: { userType: 'patient', userId: patientId } }),
+        prisma.patient.update({
+            where: { id: patientId },
+            data: {
+                email: `deleted-${patientId}@deleted.invalid`,
+                password: null,
+                googleId: null,
+                name: null,
+                phone: null,
+                gender: null,
+                age: null,
+                city: null,
+                state: null,
+                issues: [],
+                otp: null,
+                otpExpiry: null,
+                privacyConsentAt: null,
+                privacyConsentVersion: null,
+                shareContactWithDoctors: null,
+                shareContactAt: null,
+                deletedAt: new Date(),
+                savedDoctors: { set: [] },
+            },
+        }),
+    ]);
 };

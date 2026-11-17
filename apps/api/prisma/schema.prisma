@@ -98,6 +98,11 @@ model Doctor {
     rciCardVerifiedAt  DateTime? // set when an admin approved an uploaded RCI card: verified without a register match
     complianceDeadline DateTime? // doctors onboarded before RCI/agreement existed: set at their first login, they have until then to complete both
 
+    // The doctor agreed that their phone/WhatsApp numbers are shown publicly. Null for older doctors who have not answered yet.
+    contactConsentAt DateTime?
+    // Set when the account is deleted: every login token for it stops working at once
+    deletedAt DateTime?
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
@@ -130,6 +135,17 @@ model Patient {
     issues  String[]
 
     onboardingStep PatientOnboardingStep @default(EMAIL_VERIFIED)
+
+    // Proof of consent to the privacy notice (DPDP): when, and which version of the text
+    privacyConsentAt      DateTime?
+    privacyConsentVersion String?
+
+    // Whether doctors whose profile this patient views may see their name, phone and health concerns.
+    // Null = never asked (treated as no).
+    shareContactWithDoctors Boolean?
+    shareContactAt          DateTime?
+    // Set when the account is deleted: every login token for it stops working at once
+    deletedAt DateTime?
 
     otp       String?
     otpExpiry DateTime?
