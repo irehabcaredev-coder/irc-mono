@@ -7,13 +7,8 @@ import { LayoutDashboard, Calendar, MessageSquare, Settings, ChevronUp } from 'l
 
 const tabs = [
   { id: 'APPOINTMENTS', label: 'My Appointments' },
-  { id: 'FIND_SPECIALIST', label: 'Find Specialist' },
-  { id: 'AUDIOLOGIST', label: 'Audiologist' },
-  { id: 'SPEECH_THERAPIST', label: 'Speech Therapist' },
-  { id: 'CHILD_SPEECH', label: 'Child Speech' },
-  { id: 'ADULT_SPEECH', label: 'Adult Speech' },
+  { id: 'FIND_SPECIALIST', label: 'Find Doctors' },
   { id: 'HEARING_TEST', label: 'Hearing Test' },
-  { id: 'SAVED_DOCTORS', label: 'Saved Doctors' },
 ]
 
 export default function Sidebar() {
