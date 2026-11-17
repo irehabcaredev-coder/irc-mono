@@ -1,5 +1,6 @@
 
 import { z } from 'zod';
+import { SUPPORTED_COUNTRY_CODES } from '../country-service/country.codes';
 import { isValidInternationalPhone, PHONE_ERROR } from '../utils/phone';
 import { Gender } from '@prisma/client';
 
@@ -12,6 +13,7 @@ export const patientPersonalInfoSchema = z.object({
         age: z.number().min(1).max(120),
         city: z.string().min(2),
         state: z.string().min(2).optional(),
+        country: z.enum(SUPPORTED_COUNTRY_CODES).optional(),
         issues: z.array(z.string()).optional(),
     }),
 });

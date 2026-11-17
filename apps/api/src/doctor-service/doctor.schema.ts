@@ -1,5 +1,6 @@
 
 import { z } from 'zod';
+import { SUPPORTED_COUNTRY_CODES } from '../country-service/country.codes';
 import { isValidInternationalPhone, PHONE_ERROR } from '../utils/phone';
 import { Gender, DayOfWeek } from '@prisma/client';
 
@@ -31,6 +32,7 @@ export const onboardingAvailabilitySchema = z.object({
         city: z.string().min(2),
         locality: z.string().optional().nullable(),
         state: z.string().optional().nullable(),
+        country: z.enum(SUPPORTED_COUNTRY_CODES).optional(),
         availableDays: z.array(z.nativeEnum(DayOfWeek)).min(1),
         availableTiming: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]-([0-1][0-9]|2[0-3]):[0-5][0-9]$/),
     }),

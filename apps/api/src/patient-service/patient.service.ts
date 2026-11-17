@@ -128,6 +128,7 @@ export const getAllPatients = async () => {
                 age: true,
                 city: true,
                 state: true,
+                country: true,
                 issues: true,
                 onboardingStep: true,
             }

@@ -211,6 +211,7 @@ export const getAllDoctors = async (page: number = 1, limit: number = 10, specia
                     specialty: true,
                     city: true,
                     locality: true,
+                    country: true,
                     address: true,
                     latestQualification: true,
                     yearsOfExperience: true,
