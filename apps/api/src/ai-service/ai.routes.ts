@@ -92,7 +92,7 @@ const abortOnDisconnect = (res: Response) => {
 };
 
 router.post('/session', limiter(30), asyncHandler(async (req, res) => {
-    const sessionId = await aiService.createSession(getOptionalUser(req));
+    const sessionId = await aiService.createSession(await getOptionalUser(req));
     res.status(201).json({ session_id: sessionId });
 }));
 

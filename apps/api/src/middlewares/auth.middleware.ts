@@ -1,38 +1,38 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { isTokenCurrent } from '../utils/tokenCutoff';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+import { jwtSecret } from '../config/secrets';
+import { isAccountActive } from '../utils/accountStatus';
 
 export interface AuthenticatedRequest extends Request {
     user?: any;
 }
 export type AuthRequest = AuthenticatedRequest; // Backward compatibility if needed
 
+const reject = (res: Response, status: number, message: string, error: string) =>
+    res.status(status).json({ success: false, message, error });
 
 export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;
 
-    if (authHeader) {
-        const token = authHeader.split(' ')[1]; // Bearer <token>
-
-        jwt.verify(token, JWT_SECRET, (err, user) => {
-            if (err || !isTokenCurrent(user)) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Your session has expired. Please sign in again.',
-                    error: 'INVALID_TOKEN'
-                });
-            }
-
-            req.user = user;
-            next();
-        });
-    } else {
-        res.status(401).json({
-            success: false,
-            message: 'Authorization token required',
-            error: 'UNAUTHORIZED'
-        });
+    if (!authHeader) {
+        return reject(res, 401, 'Authorization token required', 'UNAUTHORIZED');
     }
+
+    const token = authHeader.split(' ')[1]; // Bearer <token>
+
+    jwt.verify(token, jwtSecret(), async (err, user: any) => {
+        if (err || !isTokenCurrent(user)) {
+            return reject(res, 403, 'Your session has expired. Please sign in again.', 'INVALID_TOKEN');
+        }
+        try {
+            if (!(await isAccountActive(user.type, user.id))) {
+                return reject(res, 403, 'This account no longer exists.', 'INVALID_TOKEN');
+            }
+        } catch (e) {
+            return next(e);
+        }
+        req.user = user;
+        next();
+    });
 };
