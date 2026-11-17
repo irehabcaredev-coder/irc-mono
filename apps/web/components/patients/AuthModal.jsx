@@ -53,6 +53,8 @@ export default function AuthModal() {
   const [resendTimer, setResendTimer] = useState(0)
   const [patientId, setPatientId] = useState(null)
   const [mockOtp, setMockOtp] = useState(null) // For dev mode
+  const [consent, setConsent] = useState(false) // Privacy Policy accepted
+  const [shareWithDoctors, setShareWithDoctors] = useState(false) // optional: show my details to doctors I view
 
   // Forgot Password State
   const [forgotPasswordStep, setForgotPasswordStep] = useState(0) // 0: email, 1: otp, 2: new password
@@ -95,6 +97,11 @@ export default function AuthModal() {
       return
     }
 
+    if (authMode === 'register' && !consent) {
+      setEmailError('Please accept the Privacy Policy to create an account')
+      return
+    }
+
     setEmailError('')
     setPasswordError('')
     setIsLoading(true)
@@ -102,7 +109,7 @@ export default function AuthModal() {
     try {
       if (authMode === 'register') {
         // Registration: Create account and send OTP
-        const result = await createPatientAccount(email, password)
+        const result = await createPatientAccount(email, password, consent)
         if (result.success && result.data) {
           const pid = result.data.patientId
           setPatientId(pid)
@@ -292,8 +299,8 @@ export default function AuthModal() {
       return
     }
 
-    if (parseInt(age) < 1 || parseInt(age) > 120) {
-      setAgeError(parseInt(age) < 1 ? 'Age must be at least 1' : 'Age must be 120 or less')
+    if (parseInt(age) < 18 || parseInt(age) > 120) {
+      setAgeError(parseInt(age) < 18 ? 'You must be 18 or older. Book for a child through your own account.' : 'Age must be 120 or less')
       return
     }
 
@@ -324,6 +331,7 @@ export default function AuthModal() {
         state: state.trim(),
         country,
         issues: issues ? [issues] : [],
+        shareContactWithDoctors: shareWithDoctors,
       })
 
       if (result.success && result.data) {
@@ -406,7 +414,8 @@ export default function AuthModal() {
     setPasswordError('')
     // Redirect to backend Google OAuth endpoint using NEXT_PUBLIC_BASE_ENDPOINT
     const baseEndpoint = (process.env.NEXT_PUBLIC_BASE_ENDPOINT || 'http://localhost:3000').replace(/\/$/, '')
-    window.location.href = `${baseEndpoint}/auth/google/patient`
+    // A new account needs the privacy notice accepted; the button stays disabled until it is ticked
+    window.location.href = `${baseEndpoint}/auth/google/patient${consent ? '?consent=true' : ''}`
   }
 
 
@@ -797,6 +806,22 @@ export default function AuthModal() {
                     </>
                   )}
 
+                  <label className="mt-4 flex items-start gap-2 text-xs text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={consent}
+                      onChange={(e) => { setConsent(e.target.checked); setEmailError('') }}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      I have read and agree to the{' '}
+                      <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary-blue underline">Privacy Policy</a>
+                      {' '}and{' '}
+                      <a href="/terms-and-conditions" target="_blank" rel="noopener noreferrer" className="text-primary-blue underline">Terms</a>
+                      , including how my health information is processed. Needed to create an account.
+                    </span>
+                  </label>
+
                   <div className="mt-4">
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
@@ -809,7 +834,7 @@ export default function AuthModal() {
 
                     <button
                       onClick={handleGoogleSignIn}
-                      disabled={isLoading}
+                      disabled={isLoading || !consent}
                       className="mt-4 w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -994,6 +1019,18 @@ export default function AuthModal() {
                       ))}
                     </select>
                   </div>
+                  <label className="flex items-start gap-2 text-xs text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={shareWithDoctors}
+                      onChange={(e) => setShareWithDoctors(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <strong>Optional.</strong> Let doctors whose profile I view see my name, phone number and the issue I selected, so they can contact me.
+                      If unticked, doctors see only that a patient viewed their profile. You can change this any time in Settings.
+                    </span>
+                  </label>
                   <button
                     onClick={handleCompleteRegistration}
                     disabled={!name || !age || !gender || !phone || !city || isLoading || parseInt(age) < 0 || parseInt(age) > 120 || !isValidE164(phone)}

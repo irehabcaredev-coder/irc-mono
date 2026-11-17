@@ -10,6 +10,7 @@ import { usePatientStore } from '@/store/usePatientStore'
 import CityPicker from '@/components/CityPicker'
 import PhoneInput from '@/components/PhoneInput'
 import { isValidE164, PHONE_ERROR } from '@/lib/phone'
+import { fetchPatientProfile, updateSharePreference } from '@/lib/patientApi'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -25,6 +26,9 @@ export default function SettingsPage() {
   const [ageError, setAgeError] = useState('')
   const [phoneError, setPhoneError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [shareWithDoctors, setShareWithDoctors] = useState(false)
+  const [shareSaving, setShareSaving] = useState(false)
+  const patientId = patientProfile?.patientId
 
   useEffect(() => {
     if (!isAuthed) {
@@ -40,6 +44,29 @@ export default function SettingsPage() {
       setCity(patientProfile.city || '')
     }
   }, [isAuthed, patientProfile, router])
+
+  // Load the saved sharing choice from the server (it is not part of the locally stored profile)
+  useEffect(() => {
+    if (!isAuthed || !patientId) return
+    fetchPatientProfile(patientId)
+      .then((res) => setShareWithDoctors(res?.data?.shareContactWithDoctors === true))
+      .catch(() => {})
+  }, [isAuthed, patientId])
+
+  const handleShareChange = async (checked) => {
+    setShareSaving(true)
+    try {
+      await updateSharePreference(checked)
+      setShareWithDoctors(checked)
+      setSuccessMessage('Your choice was saved')
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (e) {
+      setSuccessMessage('')
+      alert(e.message || 'Could not save your choice. Please try again.')
+    } finally {
+      setShareSaving(false)
+    }
+  }
 
   const handleAgeChange = (value) => {
     setAge(value)
@@ -194,6 +221,23 @@ export default function SettingsPage() {
               >
                 Save Changes
               </button>
+            </div>
+
+            <div className="mt-10 max-w-md border-t border-gray-200 pt-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Privacy</h2>
+              <label className="flex items-start gap-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={shareWithDoctors}
+                  disabled={shareSaving}
+                  onChange={(e) => handleShareChange(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  Let doctors whose profile I view see my name, phone number and health concerns so they can contact me.
+                  If this is off, doctors only see that a patient viewed their profile.
+                </span>
+              </label>
             </div>
           </div>
         </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import { useOAuthToken } from '@/hooks/useOAuthToken'
+import ShareContactPrompt from '@/components/patients/ShareContactPrompt'
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import Header from '@/components/patients/Header'
 import Sidebar from '@/components/patients/Sidebar'
@@ -23,7 +25,7 @@ import { Suspense } from 'react'
 function PatientsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const tokenFromUrl = searchParams.get('token')
+  const { token: tokenFromUrl, pending: oauthPending } = useOAuthToken(searchParams)
   const searchFromUrl = searchParams.get('search')
   const tabFromUrl = searchParams.get('tab')
   const [isHydrated, setIsHydrated] = useState(false)
@@ -73,7 +75,7 @@ function PatientsContent() {
 
   // Handle Auth
   useEffect(() => {
-    if (!isHydrated) return
+    if (!isHydrated || oauthPending) return
 
     if (tokenFromUrl) {
       localStorage.setItem('patient_token', tokenFromUrl)
@@ -133,7 +135,7 @@ function PatientsContent() {
         }, 500)
       }
     }
-  }, [isHydrated, tokenFromUrl, searchParams, setAuthSuccess, router, openAuthModal, setAuthStep, setTempPatientId])
+  }, [isHydrated, oauthPending, tokenFromUrl, searchParams, setAuthSuccess, router, openAuthModal, setAuthStep, setTempPatientId])
 
   // The API maps these tab keys to the specialties doctors actually store
   const SPECIALTY_TABS = ['AUDIOLOGIST', 'SPEECH_THERAPIST', 'CHILD_SPEECH', 'ADULT_SPEECH', 'HEARING_TEST']
@@ -324,6 +326,7 @@ function PatientsContent() {
       <Header />
       <Sidebar />
       <AuthModal />
+      <ShareContactPrompt />
       <DoctorProfile />
 
       {/* Main Content Area */}

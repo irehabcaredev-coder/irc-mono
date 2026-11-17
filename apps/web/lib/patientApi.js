@@ -1,4 +1,4 @@
-import { apiPost, apiGet, apiDelete, ApiError } from './apiClient'
+import { apiPost, apiGet, apiDelete, apiPatch, ApiError } from './apiClient'
 
 /**
  * Patient API Functions
@@ -11,13 +11,14 @@ import { apiPost, apiGet, apiDelete, ApiError } from './apiClient'
  * @param {string} password - Patient password (must meet requirements)
  * @returns {Promise<{success: boolean, data: {patientId: string, mockOtp?: string}}>}
  */
-export async function createPatientAccount(email, password) {
+export async function createPatientAccount(email, password, consent) {
   try {
     const response = await apiPost(
       '/patients/onboarding/auth',
       {
         email: email.trim(),
         password,
+        consent: consent === true,
       },
       { skipAuth: true, usePatientToken: false } // Registration doesn't require auth
     )
@@ -95,6 +96,9 @@ export async function submitPatientPersonalInfo(patientId, personalInfo) {
     if (personalInfo.country) {
       requestBody.country = personalInfo.country
     }
+
+    // The patient's explicit choice about sharing their details with doctors (false unless they ticked it)
+    requestBody.shareContactWithDoctors = personalInfo.shareContactWithDoctors === true
 
     // Include issues if provided (should be an array)
     if (personalInfo.issues && Array.isArray(personalInfo.issues) && personalInfo.issues.length > 0) {
@@ -321,41 +325,6 @@ export async function resetPassword(email, otp, newPassword) {
 }
 
 /**
- * Google Login
- * Authenticates patient using Google OAuth token
- * @param {string} googleToken - Google OAuth access token
- * @returns {Promise<{success: boolean, data: object}>}
- */
-export async function googleLogin(googleToken) {
-  try {
-    const response = await apiPost(
-      '/auth/google/verify',
-      {
-        googleToken,
-        userType: 'patient'
-      },
-      { skipAuth: true, usePatientToken: false }
-    )
-
-    // Store token in localStorage if successful
-    if (response.data?.token) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('patient_token', response.data.token)
-      }
-    }
-
-    return response
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error
-    }
-    throw new ApiError('Google login failed', 0, 'UNKNOWN_ERROR')
-  }
-}
-
-
-
-/**
  * Get Patient's Appointments
  * @param {object} params - { page, limit }
  * @returns {Promise<object>}
@@ -363,4 +332,35 @@ export async function googleLogin(googleToken) {
 export async function getPatientAppointments({ page = 1, limit = 10 } = {}) {
   const { fetchPatientAppointments } = await import('./appointmentApi')
   return fetchPatientAppointments(page, limit)
+}
+
+/**
+ * Delete the signed-in patient's account. Personal data is erased immediately; payment records are
+ * kept (without personal details) for the legal retention period.
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export async function deletePatientAccount() {
+  try {
+    return await apiDelete('/patients/me', undefined, { usePatientToken: true })
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+    throw new ApiError('Failed to delete account', 0, 'UNKNOWN_ERROR')
+  }
+}
+
+/**
+ * Choose whether doctors whose profile you view may see your name, phone and health concerns.
+ * @param {boolean} share
+ */
+export async function updateSharePreference(share) {
+  try {
+    return await apiPatch('/patients/me/preferences', { shareContactWithDoctors: share }, { usePatientToken: true })
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+    throw new ApiError('Failed to save your choice', 0, 'UNKNOWN_ERROR')
+  }
 }

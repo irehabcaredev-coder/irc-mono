@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { usePatientStore } from '@/store/usePatientStore'
+import { deletePatientAccount } from '@/lib/patientApi'
 import { useRouter, usePathname } from 'next/navigation'
 import { LayoutDashboard, Calendar, MessageSquare, Settings, ChevronUp } from 'lucide-react'
 
@@ -53,12 +54,14 @@ export default function Sidebar() {
     router.push('/patients/settings')
   }
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     setIsSettingsOpen(false)
-    // Add delete account logic or modal
-    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      // Call delete API
-      console.log('Delete account requested')
+    if (!confirm('Delete your account? Your personal details, chats and saved doctors are erased now and this cannot be undone. Payment records are kept without your personal details for 7 years, as the law requires.')) return
+    try {
+      await deletePatientAccount()
+      logout()
+    } catch (error) {
+      alert(error.message || 'Could not delete your account. Please try again.')
     }
   }
 
