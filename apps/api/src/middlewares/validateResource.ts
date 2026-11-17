@@ -4,11 +4,13 @@ import { z } from 'zod';
 
 const validate = (schema: z.ZodObject<any, any>) => (req: Request, res: Response, next: NextFunction) => {
     try {
-        schema.parse({
+        const parsed = schema.parse({
             body: req.body,
             query: req.query,
             params: req.params,
         });
+        // Keep only the fields the schema declares: anything else in the body must never reach the database
+        if (parsed.body !== undefined) req.body = parsed.body;
         next();
     } catch (e: any) {
         return res.status(400).json({

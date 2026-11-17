@@ -42,7 +42,8 @@ transporter = createTransporter();
 export const sendEmail = async (to: string, subject: string, htmlContent: string) => {
     if (!transporter) {
         if (process.env.NODE_ENV !== 'production') {
-            console.log(`[DEV] Mock Email to ${to}: ${subject}`);
+            // The only place a dev sees an OTP now that APIs no longer return it
+            console.log(`[DEV] Mock Email to ${to}: ${subject}\n${htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()}`);
             return true;
         }
         return false;
