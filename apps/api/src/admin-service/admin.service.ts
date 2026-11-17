@@ -8,7 +8,7 @@ import { comparePassword, hashPassword } from '../google-auth-service/auth.servi
 import { isRciVerified } from '../doctor-service/rci.service';
 import * as emailService from '../email-service/email.service';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+import { jwtSecret } from '../config/secrets';
 
 // Compared against when the email is unknown, so a miss takes as long as a wrong password
 const dummyHash = hashPassword(randomBytes(16).toString('hex'));
@@ -17,7 +17,7 @@ export const loginAdmin = async (email: string, password: string) => {
     const admin = await prisma.admin.findUnique({ where: { email: email.trim().toLowerCase() } });
     const ok = await comparePassword(password, admin?.passwordHash ?? (await dummyHash));
     if (!admin || !ok) throw new AppError('Invalid email or password', UNAUTHORIZED);
-    const token = jwt.sign({ id: admin.id, email: admin.email, type: 'admin' }, JWT_SECRET, { expiresIn: '12h' });
+    const token = jwt.sign({ id: admin.id, email: admin.email, type: 'admin' }, jwtSecret(), { expiresIn: '12h' });
     return { token, email: admin.email };
 };
 

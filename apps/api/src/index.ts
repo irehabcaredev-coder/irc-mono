@@ -4,6 +4,8 @@ dotenv.config();
 import http from 'http';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import { assertSecretsConfigured, sessionSecret } from './config/secrets';
 import session from 'express-session';
 import passport from 'passport';
 import authRoutes from './google-auth-service/auth.routes';
@@ -24,30 +26,42 @@ import aiRoutes from './ai-service/ai.routes';
 import aiAdminRoutes from './ai-service/ai.admin.routes';
 import { setupSignalingServer } from './meeting-service/signaling.server';
 
+// Refuse to boot in production without real secrets
+assertSecretsConfigured();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Behind Caddy: trust X-Forwarded-* so secure session cookies work over TLS
 app.set('trust proxy', 1);
 
-// Session configuration (required for Passport)
+app.use(helmet());
+
+// Session: only holds the short-lived Google sign-in state
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-session-secret-change-in-production',
+    secret: sessionSecret(),
     resave: false,
     saveUninitialized: false,
     cookie: {
+        httpOnly: true,
+        sameSite: 'lax', // the Google callback is a top-level GET, which Lax still allows
         secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 15 * 60 * 1000 // 15 minutes: enough to finish signing in
     }
 }));
 
-// Initialize Passport
 app.use(passport.initialize());
-app.use(passport.session());
 
-// CORS configuration
+// CORS: only our own sites may call the API with credentials. Add more with CORS_ORIGINS (comma separated).
+const allowedOrigins = new Set(
+    [process.env.FRONTEND_URL, process.env.DOCTORS_FRONTEND_URL, ...(process.env.CORS_ORIGINS || '').split(',')]
+        .map((o) => (o || '').trim().replace(/\/$/, ''))
+        .filter(Boolean)
+);
+const isLocalOrigin = (origin: string) => /^https?:\/\/(localhost|127\.0\.0\.1|[a-z0-9-]+\.localhost)(:\d+)?$/.test(origin);
 app.use(cors({
-    origin: (origin, callback) => callback(null, true),
+    // No Origin header = not a browser (curl, server to server): allowed. Browsers must come from an allowed site.
+    origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin) || (process.env.NODE_ENV !== 'production' && isLocalOrigin(origin))),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id', 'patient_token', 'doctor_token'],
