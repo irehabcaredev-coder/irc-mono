@@ -13,12 +13,13 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
         clientSecret: GOOGLE_CLIENT_SECRET,
         callbackURL: GOOGLE_CALLBACK_URL,
         scope: ['profile', 'email'],
+        state: true, // random state kept in the session and checked on the callback (CSRF protection)
         passReqToCallback: true 
     }, async (req: any, accessToken, refreshToken, profile, done) => {
         try {
-          
-            const state = req.query.state ? JSON.parse(Buffer.from(req.query.state as string, 'base64').toString()) : {};
-            const userType = state.type || 'patient'; // Default to patient if not specified
+            const oauth = req.session?.oauth;
+            if (!oauth) return done(new Error('Sign-in session expired. Please try again.'));
+            const userType = oauth.type;
             
             const googleId = profile.id;
             const email = profile.emails?.[0]?.value;
@@ -27,9 +28,13 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
             if (!email) {
                 return done(new Error('No email found in Google profile'));
             }
+            // Never link or create an account from an email Google has not verified
+            if ((profile as any)._json?.email_verified === false) {
+                return done(new Error('Your Google email is not verified'));
+            }
 
             // Delegate to service to find/create user
-            const result = await handleGoogleAuth(googleId, email, name, userType);
+            const result = await handleGoogleAuth(googleId, email, name, userType, { consent: !!oauth.consent });
             
             return done(null, result);
 

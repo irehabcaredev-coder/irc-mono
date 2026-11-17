@@ -1,100 +1,52 @@
 
 import { Router } from 'express';
 import passport from 'passport';
-import asyncHandler from '../utils/asyncHandler';
-import { AppError } from '../utils/AppError';
-import { BAD_REQUEST, UNAUTHORIZED } from '../utils/httpStatusCodes';
-import { handleGoogleAuth } from './auth.service';
+import { authLimiter } from '../middlewares/rateLimit';
+import { issueAuthCode, redeemAuthCode } from './authCode';
 
 const router = Router();
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 // Doctors live on their own domain; fall back to the main site until DOCTORS_FRONTEND_URL is set
 const DOCTORS_FRONTEND_URL = process.env.DOCTORS_FRONTEND_URL || FRONTEND_URL;
 
-// Google OAuth Routes
+// Google OAuth Routes. The account type (and a patient's consent) lives in the server session, and passport's
+// `state: true` ties the callback to the browser that started it, so a forged callback is rejected.
+declare module 'express-session' {
+    interface SessionData { oauth?: { type: 'doctor' | 'patient'; consent: boolean } }
+}
 
-router.get('/google/doctor', (req, res, next) => {
-    const state = Buffer.from(JSON.stringify({ type: 'doctor' })).toString('base64');
-    passport.authenticate('google', { 
-        scope: ['profile', 'email'],
-        state
-    })(req, res, next);
-});
-router.get('/google/patient', (req, res, next) => {
-    const state = Buffer.from(JSON.stringify({ type: 'patient' })).toString('base64');
-    passport.authenticate('google', { 
-        scope: ['profile', 'email'],
-        state
-    })(req, res, next);
-});
+const startGoogle = (type: 'doctor' | 'patient') => (req: any, res: any, next: any) => {
+    req.session.oauth = { type, consent: type === 'patient' && req.query.consent === 'true' };
+    passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+};
+router.get('/google/doctor', startGoogle('doctor'));
+router.get('/google/patient', startGoogle('patient'));
 
 // Callback
 router.get('/google/callback', 
-    passport.authenticate('google', { failureRedirect: `${FRONTEND_URL}/login?error=auth_failed` }),
+    passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/patients?auth_error=google_failed` }),
     (req: any, res) => {
-           const result = req.user;
+        delete req.session.oauth;
+        const result = req.user;
         if (result && result.success) {
             const { token, redirectTo, user } = result;
             const userType = user.specialty ? 'doctor' : 'patient';
             
-              const redirectUrl = `${userType === 'doctor' ? DOCTORS_FRONTEND_URL : FRONTEND_URL}${redirectTo}?token=${token}&userType=${userType}&isNewUser=${result.isNewUser}&isReturningIncompleteUser=${result.isReturningIncompleteUser || false}`;
+              const redirectUrl = `${userType === 'doctor' ? DOCTORS_FRONTEND_URL : FRONTEND_URL}${redirectTo}?code=${issueAuthCode(token)}&userType=${userType}&isNewUser=${result.isNewUser}&isReturningIncompleteUser=${result.isReturningIncompleteUser || false}`;
             
             res.redirect(redirectUrl);
         } else {
-            res.redirect(`${FRONTEND_URL}/login?error=auth_failed`);
+            res.redirect(`${FRONTEND_URL}/patients?auth_error=google_failed`);
         }
     }
 );
 
-
-router.post('/google/verify', asyncHandler(async (req: any, res: any, next: any) => {
-    const { googleToken, userType } = req.body;
-
-    if (!googleToken || !userType) {
-        throw new AppError('Google token and user type are required', BAD_REQUEST);
-    }
-
-    if (!['doctor', 'patient'].includes(userType)) {
-        throw new AppError('User type must be either "doctor" or "patient"', BAD_REQUEST);
-    }
-
-    // Verify Google token
-    const response = await fetch(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${googleToken}`);
-    
-    if (!response.ok) {
-        throw new AppError('Invalid Google token', UNAUTHORIZED);
-    }
-
-    const googleUser = await response.json();
-    
-    if (!googleUser.email) {
-        throw new AppError('No email found in Google profile', BAD_REQUEST);
-    }
-
-    const result = await handleGoogleAuth(
-        googleUser.id,
-        googleUser.email,
-        googleUser.name,
-        userType
-    );
-
-    return res.status(200).json({
-        success: true,
-        message: result.isNewUser ? 'Account created successfully with Google' : 
-                result.isReturningIncompleteUser ? 'Welcome back! Please complete your profile' : 
-                'Login successful',
-        data: {
-            userId: (result.user as any)?.id,
-            token: result.token,
-            email: (result.user as any)?.email,
-            name: (result.user as any)?.name,
-            userType,
-            isNewUser: result.isNewUser,
-            isReturningIncompleteUser: result.isReturningIncompleteUser || false,
-            redirectTo: result.redirectTo || '/dashboard',
-            onboardingStep: (result.user as any)?.onboardingStep
-        }
-    });
-}));
+// The page swaps the one-time code from the redirect for the login token
+router.post('/exchange', authLimiter, (req, res) => {
+    const token = redeemAuthCode(req.body?.code);
+    if (!token) return res.status(400).json({ success: false, message: 'This sign-in link has expired. Please sign in again.' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ success: true, data: { token } });
+});
 
 export default router;

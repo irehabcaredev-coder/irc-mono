@@ -4,13 +4,15 @@ import jwt from 'jsonwebtoken';
 import { OnboardingStep, PatientOnboardingStep } from '@prisma/client';
 import prisma from '../config/prisma';
 import { AppError } from '../utils/AppError';
-import { INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
+import { BAD_REQUEST, INTERNAL_SERVER_ERROR } from '../utils/httpStatusCodes';
+import { PRIVACY_POLICY_VERSION } from '../config/retention';
 import { startComplianceGraceIfNeeded } from '../doctor-service/rci.service';
+import { jwtSecret } from '../config/secrets';
+import { generateOTP } from '../utils/otp';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+export { generateOTP };
+
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-
-export const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 export const hashPassword = async (password: string) => {
     return await bcrypt.hash(password, 10);
@@ -25,10 +27,10 @@ export const generateToken = (id: string, email: string, type: 'doctor' | 'patie
     if (type === 'doctor') payload.doctorId = id;
     if (type === 'patient') payload.patientId = id;
     
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+    return jwt.sign(payload, jwtSecret(), { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
 };
 
-export const handleGoogleAuth = async (googleId: string, email: string, name: string, userType: 'doctor' | 'patient') => {
+export const handleGoogleAuth = async (googleId: string, email: string, name: string, userType: 'doctor' | 'patient', opts: { consent?: boolean } = {}) => {
     try {
         if (userType === 'doctor') {
             let doctor = await prisma.doctor.findUnique({
@@ -173,12 +175,16 @@ export const handleGoogleAuth = async (googleId: string, email: string, name: st
                 }
             }
 
+            // A new patient account needs the privacy notice accepted first; the sign-in page sends that along
+            if (!opts.consent) throw new AppError('Please accept the Privacy Policy to create an account', BAD_REQUEST);
             const newPatient = await prisma.patient.create({
                 data: {
                     email,
                     googleId,
                     name,
-                    onboardingStep: PatientOnboardingStep.PERSONAL_INFO_COMPLETE 
+                    onboardingStep: PatientOnboardingStep.PERSONAL_INFO_COMPLETE,
+                    privacyConsentAt: new Date(),
+                    privacyConsentVersion: PRIVACY_POLICY_VERSION
                 } as any
             });
 

@@ -15,6 +15,13 @@ export const signupSchema = z.object({
     }),
 });
 
+// Patients must tick the privacy notice; the server records when, and which version
+export const patientSignupSchema = z.object({
+    body: signupSchema.shape.body.extend({
+        consent: z.literal(true, { message: 'Please accept the Privacy Policy to continue' }),
+    }),
+});
+
 export const verifyOtpSchema = z.object({
     body: z.object({
         email: z.string().email(),
