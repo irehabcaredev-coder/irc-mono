@@ -1,5 +1,6 @@
 'use client'
 
+import { useOAuthToken } from '@/hooks/useOAuthToken'
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, ArrowLeft, BadgeCheck } from 'lucide-react'
@@ -49,12 +50,13 @@ function OnboardingContent() {
   const updatePaymentDetails = useDoctorStore((state) => state.updatePaymentDetails)
 
   const searchParams = useSearchParams()
-  const tokenFromUrl = searchParams.get('token')
+  const { token: tokenFromUrl, pending: oauthPending } = useOAuthToken(searchParams)
 
   const [step, setStep] = useState(1)
   const [errors, setErrors] = useState({})
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [contactConsent, setContactConsent] = useState(false) // agrees the phone number is shown on the public profile
   const [isHydrated, setIsHydrated] = useState(false)
   const hasInitialized = useRef(false)
 
@@ -187,7 +189,7 @@ function OnboardingContent() {
 
   useEffect(() => {
     // Only run auth checks after hydration
-    if (!isHydrated) return
+    if (!isHydrated || oauthPending) return
 
     // Skip if initial auth/step setup has already been done
     // This prevents handleSubmitStep's setOnboardingStep from re-triggering this effect
@@ -279,7 +281,7 @@ function OnboardingContent() {
 
     handleAuth()
 
-  }, [isHydrated, tokenFromUrl, router, setAuth, setOnboardingStep, setOnboarded, updateBasicDetails, updateProfessionalDetails, updatePracticeDetails, doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep])
+  }, [isHydrated, oauthPending, tokenFromUrl, router, setAuth, setOnboardingStep, setOnboarded, updateBasicDetails, updateProfessionalDetails, updatePracticeDetails, doctorAuth.isAuthed, doctorAuth.doctorId, doctorAuth.onboardingStep])
 
   const validateStep = (stepNum) => {
     const newErrors = {}
@@ -298,6 +300,7 @@ function OnboardingContent() {
       if (!isValidE164(basicData?.phone)) {
         newErrors.phone = PHONE_ERROR
       }
+      if (!contactConsent) newErrors.contactConsent = 'Please agree to show your contact number on your profile to continue'
     }
 
     if (stepNum === 3) {
@@ -385,7 +388,7 @@ function OnboardingContent() {
       if (stepNum === 1) {
         // Submit Personal Info
         const apiData = transformBasicDetailsToAPI(basicData)
-        const result = await submitPersonalInfo(doctorId, apiData)
+        const result = await submitPersonalInfo(doctorId, { ...apiData, contactConsent })
 
         if (result.success && result.data) {
           updateBasicDetails(basicData)
@@ -666,6 +669,24 @@ function OnboardingContent() {
                   />
                   {errors.phone && (
                     <p className="mt-1 text-sm text-accent-red">{errors.phone}</p>
+                  )}
+                  <label className="mt-3 flex items-start gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={contactConsent}
+                      onChange={(e) => {
+                        setContactConsent(e.target.checked)
+                        if (errors.contactConsent) setErrors((prev) => ({ ...prev, contactConsent: null }))
+                      }}
+                      className="mt-1"
+                    />
+                    <span>
+                      I agree that this phone / WhatsApp number is shown publicly on my iRehabCare profile so patients can contact me.
+                      I can ask to have it removed at any time. *
+                    </span>
+                  </label>
+                  {errors.contactConsent && (
+                    <p className="mt-1 text-sm text-accent-red">{errors.contactConsent}</p>
                   )}
                 </div>
 

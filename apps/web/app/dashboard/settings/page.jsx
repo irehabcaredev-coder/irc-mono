@@ -6,6 +6,7 @@ import { useDoctorStore } from '@/store/useDoctorStore'
 import DashboardSidebar, { MobileMenuButton } from '@/components/doctor/DashboardSidebar'
 
 import ProfileCompleteness from '@/components/doctor/ProfileCompleteness'
+import DeleteAccountSection from '@/components/doctor/DeleteAccountSection'
 import { LogOut } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -102,6 +103,8 @@ export default function SettingsPage() {
                 </button>
               </div>
             </div>
+
+            <DeleteAccountSection />
           </div>
         </div>
       </div>

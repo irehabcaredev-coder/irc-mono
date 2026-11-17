@@ -1,4 +1,4 @@
-import { apiPost, apiGet, apiPostForm, ApiError } from './apiClient'
+import { apiPost, apiGet, apiDelete, apiPostForm, ApiError } from './apiClient'
 
 /**
  * Doctor Onboarding API Functions
@@ -147,6 +147,7 @@ export async function submitPersonalInfo(doctorId, personalInfo) {
         languages: personalInfo.languages,
         contactNumber: personalInfo.contactNumber,
         whatsappNumber: personalInfo.whatsappNumber,
+        contactConsent: personalInfo.contactConsent === true,
       },
       { skipAuth: false } // Requires auth token
     )
@@ -509,5 +510,34 @@ export async function getDoctorAppointments({ page = 1, limit = 10 } = {}) {
       throw error
     }
     throw new ApiError('Failed to fetch appointments', 0, 'UNKNOWN_ERROR')
+  }
+}
+
+/**
+ * Accept that the doctor's contact numbers are shown publicly (for doctors who registered before this was asked).
+ */
+export async function acceptContactConsent() {
+  try {
+    return await apiPost('/doctors/me/contact-consent', {}, { skipAuth: false })
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+    throw new ApiError('Failed to save your choice', 0, 'UNKNOWN_ERROR')
+  }
+}
+
+/**
+ * Delete the signed-in doctor's account. Personal and payout details are erased immediately; payment records
+ * are kept without personal details for the legal retention period.
+ */
+export async function deleteDoctorAccount() {
+  try {
+    return await apiDelete('/doctors/me', undefined, { skipAuth: false })
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+    throw new ApiError('Failed to delete account', 0, 'UNKNOWN_ERROR')
   }
 }

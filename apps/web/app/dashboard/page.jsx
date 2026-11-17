@@ -1,5 +1,6 @@
 'use client'
 
+import { useOAuthToken } from '@/hooks/useOAuthToken'
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -14,7 +15,7 @@ import ScheduleMeetingModal from '@/components/doctor/ScheduleMeetingModal'
 function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const tokenFromUrl = searchParams.get('token')
+  const { token: tokenFromUrl, pending: oauthPending } = useOAuthToken(searchParams)
 
   const doctorAuth = useDoctorStore((state) => state.doctorAuth)
   const setAuth = useDoctorStore((state) => state.setAuth)
@@ -66,7 +67,7 @@ function DashboardContent() {
 
   // Handle URL token and Auth
   useEffect(() => {
-    if (!isHydrated) return
+    if (!isHydrated || oauthPending) return
 
     const handleAuth = () => {
       // 1. Check for token in URL
@@ -103,7 +104,7 @@ function DashboardContent() {
     }
 
     handleAuth()
-  }, [isHydrated, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.onboardingStep, router, setAuth])
+  }, [isHydrated, oauthPending, tokenFromUrl, doctorAuth.isAuthed, doctorAuth.onboardingStep, router, setAuth])
 
   // Fetch upcoming appointments for the overview
   const { data: upcomingAppointmentsData = [] } = useQuery({

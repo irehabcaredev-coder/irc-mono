@@ -206,7 +206,7 @@ export default function LeadsPage() {
                                     )}
                                   </>
                                 ) : (
-                                  <p className="text-xs sm:text-sm text-gray-600 italic">Anonymous visitor</p>
+                                  <p className="text-xs sm:text-sm text-gray-600 italic">Patient (details private)</p>
                                 )}
                               </div>
                             </div>
