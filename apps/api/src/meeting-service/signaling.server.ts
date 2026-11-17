@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket, RawData } from 'ws';
 import type { Server as HttpServer, IncomingMessage } from 'http';
 import jwt from 'jsonwebtoken';
 import { URL } from 'url';
+import { meetingSecret } from '../config/secrets';
 
 interface Participant {
     socket: WebSocket;
@@ -78,14 +79,9 @@ export const setupSignalingServer = (server: HttpServer) => {
                 return;
             }
 
-            const jwtSecret = process.env.JWT_SECRET || 'your-jwt-secret-key-change-in-production';
-            if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
-                console.warn('[signaling] JWT_SECRET is not set, using the insecure default!');
-            }
-
             let payload: any;
             try {
-                payload = jwt.verify(token, jwtSecret);
+                payload = jwt.verify(token, meetingSecret());
             } catch (err: any) {
                 console.warn('[signaling] Invalid meeting token:', err.message);
                 socket.close(4001, 'Invalid or expired meeting token');

@@ -30,8 +30,8 @@ export default function MeetingPage() {
   const meetingId = params.meetingId;
 
   const [uid, setUid] = useState(null);
-  const [role, setRole] = useState(null); // 'doctor' | 'patient' | null (guest)
-  const [guestName, setGuestName] = useState('');
+  const [role, setRole] = useState(null); // 'doctor' | 'patient'; calls are for signed-in participants only
+  const [authChecked, setAuthChecked] = useState(false);
   const [isJoinReady, setIsJoinReady] = useState(false);
   const [meetingDetails, setMeetingDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(true);
@@ -47,7 +47,7 @@ export default function MeetingPage() {
   const isPatientAuthed = usePatientStore((state) => state.isAuthed);
 
   // Work out who is joining. Name and role are decided together so a logged-in user
-  // is never sent to the backend as a guest just because a store hydrated late.
+  // is never shown the sign-in prompt just because a store hydrated late.
   useEffect(() => {
     let name = null;
     let detectedRole = null;
@@ -82,23 +82,13 @@ export default function MeetingPage() {
       }
     }
 
-    // Only ever move forward. A guest who already typed a name must not be bounced
-    // back to the form when a store re-renders.
     if (name) {
-      console.log('Meeting: Auto-joined as', name);
       setUid(name);
       setRole(detectedRole);
       setIsJoinReady(true);
     }
+    setAuthChecked(true);
   }, [isDoctorAuthed, doctorAuth, doctorProfile, isPatientAuthed, patientProfile]);
-
-  const handleJoin = (e) => {
-    e.preventDefault();
-    if (!guestName.trim()) return;
-    setRole(null);
-    setUid(guestName.trim());
-    setIsJoinReady(true);
-  };
 
   const handleLeave = () => {
     if (role === 'doctor' || isDoctorAuthed) {
@@ -112,10 +102,15 @@ export default function MeetingPage() {
 
   // Meeting details (name + schedule)
   useEffect(() => {
-    if (!meetingId) return;
+    if (!meetingId || !authChecked) return;
+    // Not signed in: nothing to load, the page asks them to sign in
+    if (!role) {
+      setLoadingDetails(false);
+      return;
+    }
     (async () => {
       try {
-        const { data } = await getMeetingDetails(meetingId);
+        const { data } = await getMeetingDetails(meetingId, { role });
         setMeetingDetails(data);
         setTooEarly(new Date(data.scheduledAt).getTime() - Date.now() > EARLY_JOIN_MS);
       } catch (err) {
@@ -127,7 +122,7 @@ export default function MeetingPage() {
         setLoadingDetails(false);
       }
     })();
-  }, [meetingId]);
+  }, [meetingId, authChecked, role]);
 
   // While waiting for the join window to open, re-check automatically
   useEffect(() => {
@@ -144,7 +139,7 @@ export default function MeetingPage() {
   useEffect(() => {
     if (!isJoinReady || !uid || tooEarly || connection || joinError || loadingDetails) return;
     let cancelled = false;
-    getMeetingToken(meetingId, { role, name: uid })
+    getMeetingToken(meetingId, { role })
       .then(({ data }) => {
         if (!cancelled) {
           setConnection({
@@ -229,45 +224,33 @@ export default function MeetingPage() {
     );
   }
 
-  // Not ready to join yet (guest needs to enter name)
+  // Not signed in: only the doctor and patient of this appointment can join
   if (!uid || !isJoinReady) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Join Meeting</h1>
-            <p className="text-gray-600 mt-2">
-              {meetingDetails
-                ? `Join "${meetingDetails.meetingName}"`
-                : 'Enter your name to join the video call'}
-            </p>
-          </div>
-          <form onSubmit={handleJoin} className="space-y-6">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Your Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent outline-none"
-                placeholder="e.g. John Doe"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={!guestName.trim()}
-              className="w-full bg-primary-blue text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 text-center">
+          <h1 className="text-2xl font-bold text-gray-900">Sign in to join</h1>
+          <p className="text-gray-600 mt-2 mb-6">
+            For your privacy, video consultations are open only to the doctor and the patient of the appointment.
+            Please sign in with the account that booked it.
+          </p>
+          <div className="space-y-3">
+            <a
+              href="/patients"
+              className="block w-full bg-primary-blue text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
             >
-              Join Call
-            </button>
-            <p className="text-xs text-center text-gray-500">
-              By joining, you agree to allow camera and microphone access.
-            </p>
-          </form>
+              Sign in as patient
+            </a>
+            <a
+              href="/auth"
+              className="block w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+            >
+              Sign in as doctor
+            </a>
+          </div>
+          <p className="text-xs text-center text-gray-500 mt-4">
+            By joining, you agree to allow camera and microphone access.
+          </p>
         </div>
       </div>
     );

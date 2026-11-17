@@ -1,18 +1,15 @@
 import { apiGet, apiPost } from './apiClient'
 
-/** Public meeting info (name + schedule) for the join screen. */
-export async function getMeetingDetails(meetingId) {
-  return apiGet(`/meetings/${meetingId}`, { skipAuth: true })
+/** Meeting info (name + schedule) for the join screen. Only the doctor or patient of the appointment may read it. */
+export async function getMeetingDetails(meetingId, { role }) {
+  return apiGet(`/meetings/${meetingId}`, { usePatientToken: role === 'patient' })
 }
 
 /**
  * Ask the backend for a WebRTC signaling token.
- * role: 'doctor' | 'patient' sends that user's JWT; null joins as a guest using `name`.
+ * role: 'doctor' | 'patient' sends that user's JWT. There is no guest access: both sides must be signed in.
  * Rejects with ApiError; errorCode may be MEETING_NOT_STARTED / MEETING_ENDED.
  */
-export async function getMeetingToken(meetingId, { role, name }) {
-  return apiPost(`/meetings/${meetingId}/token`, { name }, {
-    skipAuth: !role,
-    usePatientToken: role === 'patient',
-  })
+export async function getMeetingToken(meetingId, { role }) {
+  return apiPost(`/meetings/${meetingId}/token`, {}, { usePatientToken: role === 'patient' })
 }

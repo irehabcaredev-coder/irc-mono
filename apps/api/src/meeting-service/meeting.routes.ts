@@ -6,13 +6,13 @@ import { getOptionalUser } from '../middlewares/optionalAuth';
 const router = express.Router();
 
 router.get('/:meetingId', asyncHandler(async (req, res) => {
-    const data = await meetingService.getMeetingDetails(req.params.meetingId as string);
+    const data = await meetingService.getMeetingDetails(req.params.meetingId as string, await getOptionalUser(req));
     res.json({ success: true, data });
 }));
 
 router.post('/:meetingId/token', asyncHandler(async (req, res) => {
     try {
-        const data = await meetingService.createMeetingToken(req.params.meetingId as string, getOptionalUser(req), req.body?.name);
+        const data = await meetingService.createMeetingToken(req.params.meetingId as string, await getOptionalUser(req));
         res.json({ success: true, data });
     } catch (err) {
         if (err instanceof meetingService.MeetingWindowError) {

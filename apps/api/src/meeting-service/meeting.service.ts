@@ -1,10 +1,11 @@
 import jwt from 'jsonwebtoken';
-import { randomUUID, createHmac } from 'crypto';
+import { createHmac } from 'crypto';
 import { AppointmentStatus } from '@prisma/client';
 import prisma from '../config/prisma';
 import { OptionalUser } from '../middlewares/optionalAuth';
 import { AppError } from '../utils/AppError';
-import { BAD_REQUEST, FORBIDDEN, NOT_FOUND } from '../utils/httpStatusCodes';
+import { FORBIDDEN, NOT_FOUND, UNAUTHORIZED } from '../utils/httpStatusCodes';
+import { meetingSecret } from '../config/secrets';
 
 const EARLY_JOIN_MS = 10 * 60 * 1000;
 const LATE_JOIN_MS = 30 * 60 * 1000;
@@ -19,6 +20,13 @@ export class MeetingWindowError extends AppError {
         super(message, FORBIDDEN);
     }
 }
+
+/** Calls are for the doctor and patient of the appointment only: no guests, no other accounts. */
+const assertParticipant = (a: { doctorId: string; patientId: string }, user: MeetingUser) => {
+    if (!user) throw new AppError('Please sign in to join this meeting', UNAUTHORIZED);
+    const ok = (user.type === 'doctor' && user.id === a.doctorId) || (user.type === 'patient' && user.id === a.patientId);
+    if (!ok) throw new AppError('You are not a participant of this meeting', FORBIDDEN);
+};
 
 const findAppointment = async (meetingId: string) => {
     // Appointment ids are UUIDs; anything else cannot match and would only hit the DB for nothing
@@ -75,15 +83,17 @@ const buildIceServers = (identity: string): IceServer[] => {
     return servers;
 };
 
-export const getMeetingDetails = async (meetingId: string) => {
+export const getMeetingDetails = async (meetingId: string, user: MeetingUser) => {
     const a = await findAppointment(meetingId);
+    assertParticipant(a, user);
     return { id: a.id, meetingName: a.meetingName, scheduledAt: a.scheduledAt, scheduledEnd: a.scheduledEnd, status: a.status };
 };
 
-export const createMeetingToken = async (meetingId: string, user: MeetingUser, guestName?: string) => {
-    const jwtSecret = process.env.JWT_SECRET || 'your-jwt-secret-key-change-in-production';
+export const createMeetingToken = async (meetingId: string, user: MeetingUser) => {
+    const secret = meetingSecret();
 
     const a = await findAppointment(meetingId);
+    assertParticipant(a, user);
     if (a.status === AppointmentStatus.CANCELLED) throw new AppError('This appointment was cancelled', FORBIDDEN);
 
     const now = Date.now();
@@ -94,32 +104,17 @@ export const createMeetingToken = async (meetingId: string, user: MeetingUser, g
         throw new MeetingWindowError('This meeting has ended', 'MEETING_ENDED', a.scheduledAt, a.scheduledEnd);
     }
 
-    let identity: string;
-    let name: string;
-    if (user?.type === 'doctor') {
-        if (user.id !== a.doctorId) throw new AppError('You are not a participant of this meeting', FORBIDDEN);
-        identity = `doctor:${user.id}`;
-        name = a.doctor.name ?? 'Doctor';
-    } else if (user?.type === 'patient') {
-        if (user.id !== a.patientId) throw new AppError('You are not a participant of this meeting', FORBIDDEN);
-        identity = `patient:${user.id}`;
-        name = a.patient.name ?? 'Patient';
-    } else {
-        // Guests may join with a name; the meeting id acts as the invite
-        const trimmed = guestName?.trim();
-        if (!trimmed) throw new AppError('Name is required to join as a guest', BAD_REQUEST);
-        identity = `guest:${randomUUID()}`;
-        name = trimmed.slice(0, 60);
-    }
+    const identity = `${user!.type}:${user!.id}`;
+    const name = (user!.type === 'doctor' ? a.doctor.name : a.patient.name) ?? (user!.type === 'doctor' ? 'Doctor' : 'Patient');
 
     const token = jwt.sign(
         {
             meetingId: a.id,
             identity,
             name,
-            userType: user?.type || 'guest',
+            userType: user!.type,
         },
-        jwtSecret,
+        secret,
         { expiresIn: TOKEN_TTL_SECONDS }
     );
 
