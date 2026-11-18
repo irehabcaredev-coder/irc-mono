@@ -10,8 +10,18 @@ import { apiPost } from '@/lib/apiClient'
  */
 export function useOAuthToken(searchParams) {
   const code = searchParams.get('code')
-  const [token, setToken] = useState(null)
+  // TEMPORARY: an API that has not been updated yet still redirects with ?token=. Accept it so sign-in keeps working
+  // during a rollout where the site is deployed before the API, and remove this once the API is on the new release.
+  const legacyToken = code ? null : searchParams.get('token')
+  const [token, setToken] = useState(legacyToken)
   const [pending, setPending] = useState(!!code)
+
+  useEffect(() => {
+    if (!legacyToken) return
+    const url = new URL(window.location.href)
+    url.searchParams.delete('token')
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+  }, [legacyToken])
 
   useEffect(() => {
     if (!code) return
