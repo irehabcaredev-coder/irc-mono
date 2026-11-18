@@ -31,8 +31,12 @@ router.get('/google/callback',
         if (result && result.success) {
             const { token, redirectTo, user } = result;
             const userType = user.specialty ? 'doctor' : 'patient';
+            // The site normally gets a one-time code. While an older build of the site is still live (it only understands
+            // ?token=), set OAUTH_LEGACY_TOKEN_REDIRECT=true. Turn it off again once the site is updated: a token in the
+            // address ends up in browser history and logs.
+            const credential = process.env.OAUTH_LEGACY_TOKEN_REDIRECT === 'true' ? `token=${token}` : `code=${issueAuthCode(token)}`;
             
-              const redirectUrl = `${userType === 'doctor' ? DOCTORS_FRONTEND_URL : FRONTEND_URL}${redirectTo}?code=${issueAuthCode(token)}&userType=${userType}&isNewUser=${result.isNewUser}&isReturningIncompleteUser=${result.isReturningIncompleteUser || false}`;
+              const redirectUrl = `${userType === 'doctor' ? DOCTORS_FRONTEND_URL : FRONTEND_URL}${redirectTo}?${credential}&userType=${userType}&isNewUser=${result.isNewUser}&isReturningIncompleteUser=${result.isReturningIncompleteUser || false}`;
             
             res.redirect(redirectUrl);
         } else {
