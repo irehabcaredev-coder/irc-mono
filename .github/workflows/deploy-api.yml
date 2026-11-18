@@ -67,6 +67,9 @@ jobs:
           username: ${{ secrets.VM_USER || vars.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY || vars.VM_SSH_KEY }}
           envs: IMAGE
+          # Stop at the first failing command. Without this a failed pull or migration is ignored, the old
+          # container keeps running, and the job still shows green.
+          script_stop: true
           script: |
             cd /opt/ecareplus
             touch .env
@@ -78,5 +81,12 @@ jobs:
             gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
             docker compose pull api
             docker compose --profile tools run --rm migrate
+            # The new release refuses to start in production without real JWT_SECRET / SESSION_SECRET.
+            # Check that here, before the running container is replaced, so a bad .env cannot cause an outage.
+            docker compose run --rm --no-deps api node -e "require('./dist/config/secrets').assertSecretsConfigured()"
             docker compose up -d
             docker image prune -f
+            sleep 15
+            docker compose ps
+            docker compose logs --tail 20 api
+            curl -fsS http://127.0.0.1:8000/ > /dev/null
