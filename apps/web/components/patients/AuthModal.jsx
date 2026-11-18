@@ -414,7 +414,7 @@ export default function AuthModal() {
     setPasswordError('')
     // Redirect to backend Google OAuth endpoint using NEXT_PUBLIC_BASE_ENDPOINT
     const baseEndpoint = (process.env.NEXT_PUBLIC_BASE_ENDPOINT || 'http://localhost:3000').replace(/\/$/, '')
-    // A new account needs the privacy notice accepted; the button stays disabled until it is ticked
+    // Returning users can sign in without ticking; a brand new account needs the privacy notice accepted (the server checks)
     window.location.href = `${baseEndpoint}/auth/google/patient${consent ? '?consent=true' : ''}`
   }
 
@@ -834,7 +834,7 @@ export default function AuthModal() {
 
                     <button
                       onClick={handleGoogleSignIn}
-                      disabled={isLoading || !consent}
+                      disabled={isLoading || (authMode === 'register' && !consent)}
                       className="mt-4 w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">

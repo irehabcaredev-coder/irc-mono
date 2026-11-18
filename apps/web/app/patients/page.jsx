@@ -73,6 +73,19 @@ function PatientsContent() {
     }
   };
 
+  // Google sign-in sends the visitor back here with a reason when it could not finish
+  const authError = searchParams.get('auth_error')
+  useEffect(() => {
+    if (!isHydrated || !authError) return
+    if (authError === 'consent_required') {
+      alert('To create your account, please tick the Privacy Policy box and choose "Continue with Google" again.')
+      openAuthModal('register')
+    } else {
+      alert('Google sign-in could not be completed. Please try again.')
+    }
+    router.replace('/patients')
+  }, [isHydrated, authError, openAuthModal, router])
+
   // Handle Auth
   useEffect(() => {
     if (!isHydrated || oauthPending) return
