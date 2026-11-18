@@ -44,7 +44,7 @@ jobs:
           source: "infra/docker-compose.yml,infra/caddy/**"
           target: /opt/ecareplus
           strip_components: 1
-      - name: Write .env on VM if provided in secrets
+      - name: Create .env on VM only the first time
         uses: appleboy/ssh-action@v1.0.3
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || vars.ENV_FILE }}
@@ -54,7 +54,9 @@ jobs:
           key: ${{ secrets.VM_SSH_KEY || vars.VM_SSH_KEY }}
           envs: ENV_CONTENT
           script: |
-            if [ -n "$ENV_CONTENT" ]; then
+            # The .env on the VM is the source of truth. It is written from the secret only when it does not
+            # exist yet, so a deploy can never overwrite the live settings with an older copy.
+            if [ -n "$ENV_CONTENT" ] && [ ! -s /opt/ecareplus/.env ]; then
               mkdir -p /opt/ecareplus
               printf "%s\n" "$ENV_CONTENT" > /opt/ecareplus/.env
             fi
