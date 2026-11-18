@@ -36,7 +36,7 @@ router.get('/google/callback',
             
             res.redirect(redirectUrl);
         } else {
-            res.redirect(`${FRONTEND_URL}/patients?auth_error=google_failed`);
+            res.redirect(`${FRONTEND_URL}/patients?auth_error=${result?.reason || 'google_failed'}`);
         }
     }
 );

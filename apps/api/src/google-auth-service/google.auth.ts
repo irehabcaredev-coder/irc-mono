@@ -38,7 +38,9 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
             
             return done(null, result);
 
-        } catch (error) {
+        } catch (error: any) {
+            // A new patient who did not accept the Privacy Policy is not an error: send them back to tick it
+            if (error?.message?.includes('Privacy Policy')) return done(null, { success: false, reason: 'consent_required' });
             return done(error);
         }
     }));
